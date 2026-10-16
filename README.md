@@ -1,56 +1,93 @@
-# Welcome to your Expo app 👋
+# Lonagram mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Native iOS and Android client for [Lonagram](https://lonagram.com). The current milestone provides secure Supabase authentication and a polished five-tab product shell. It does not replace the website or backend.
 
-## Get started
+The website remains the Next.js app in [yerlanSandybaev/lonagram](https://github.com/yerlanSandybaev/lonagram). This repository does not import that app, and it does not ship server secrets.
 
-1. Install dependencies
+## Architecture
 
-   ```bash
-   npm install
-   ```
+The phone is another Supabase client. Signup sends the same user metadata the existing `handle_new_user` trigger already reads: `username`, `display_name`, and `is_18_plus`. The session is encrypted by the platform secure store (iOS Keychain, Android Keystore). Values larger than the store's limit are split into chunks so a full auth session still fits.
 
-2. Start the app
+These values stay on the server and are not part of this app:
 
-   ```bash
-   npx expo start
-   ```
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `OPENAI_API_KEY`
+- `SESSION_SECRET`
+- `LONAGRAM_API_SECRET`
 
-In the output, you'll find options to open the app in a
+Twin turns, permission filtering, and cross-user reads stay behind the existing Next.js actions and the Render API. The Render `/rpc` route is an internal API protected by a shared secret. The app does not call it.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Pure signup rules that must match the website live in `src/lib/auth-input.ts` and are covered by Vitest. Moving `src/domain` out of the website into a shared package would mean restructuring the production app. That wait is intentional for this phase.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Configure
 
 ```bash
-npm run reset-project
+npm install
+copy .env.example .env.local
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Set the two public values from the same Supabase project the website uses (Project Settings → API):
 
-### Other setup steps
+```
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+`EXPO_PUBLIC_SUPABASE_ANON_KEY` is accepted as an alias for the website's public anon key. If the value is a service-role or secret key, the app refuses to create a client. Restart Expo after changing `.env.local`.
 
-## Learn more
+Leave both values empty to open the sign-in screen without a project. Sign-in will not succeed until they are set.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Checks
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm run typecheck
+npm test
+```
 
-## Join the community
+## Android
 
-Join our community of developers creating universal apps.
+1. Install [Android Studio](https://developer.android.com/studio) and an Android emulator, or use a phone with [Expo Go](https://expo.dev/go).
+2. Start the emulator, or connect the phone with USB debugging enabled.
+3. From this directory:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npm run android
+```
+
+That starts Metro and opens the app on the emulator or connected device. You can also run `npm start` and press `a`.
+
+On a physical phone with Expo Go, `npm start` prints a QR code. The phone and the computer need to be on the same network. If the phone cannot reach Metro, run `npx expo start --tunnel`.
+
+## iOS
+
+A local iOS Simulator build needs macOS and Xcode. On a Mac:
+
+```bash
+npm run ios
+```
+
+From Windows, install Expo Go on an iPhone, run `npm start`, and scan the QR code. The phone and the computer need to be on the same network, or use `npx expo start --tunnel`.
+
+This phase does not create an App Store or Play Store submission, an EAS production build, or a development-build binary. `com.lonagram.app` is the local bundle identifier for later device builds.
+
+## What you can do in this version
+
+- Create an account with email, password, username, display name, and the 18+ confirmation.
+- Sign in and stay signed in after the app restarts.
+- Move through Discover, Connections, Twin, Chats, and Profile, and open Notifications and Settings.
+- Sign out from Settings.
+
+The app never fills unavailable services with fake content. Discover, connections, Twin editing/chat, and real messaging show explicit disabled or empty states until their authenticated mobile API contracts are available.
+
+## EAS profiles
+
+`eas.json` includes development, internal preview, and production profiles. Building still requires an Expo account, an EAS project link, and the relevant Apple or Google credentials:
+
+```bash
+npx eas-cli build --profile preview --platform android
+npx eas-cli build --profile preview --platform ios
+```
+
+No store submission is performed by this repository configuration alone.
+
+Google sign-in is not in this version. The website shows it only when Supabase Google auth is configured, and the native redirect still needs to be registered on that project.
