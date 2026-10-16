@@ -1,22 +1,14 @@
-import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { Text, View } from "react-native";
-
-import { GlassCard, PremiumScreen, StatusPill } from "@/components/premium-ui";
+import { Avatar, QueryState, Row, Section } from "@/components/mobile-ui";
+import { PremiumScreen, StatusPill } from "@/components/premium-ui";
 import { useTheme } from "@/hooks/use-theme";
+import { loadMyBundle } from "@/lib/lonagram";
 import { useAuth } from "@/providers/auth-provider";
 
 export default function ProfileScreen() {
-  const theme = useTheme();
-  const { profile, session } = useAuth();
-  const email = session?.user.email ?? "Signed in";
-  return (
-    <PremiumScreen eyebrow="Your space" title={profile?.displayName ?? "Profile"} subtitle={profile ? `@${profile.username}` : email}>
-      <View style={{ alignItems: "center", flexDirection: "row", gap: 14 }}>
-        <View style={{ alignItems: "center", backgroundColor: theme.backgroundSelected, borderRadius: 32, height: 64, justifyContent: "center", width: 64 }}><Ionicons color={theme.primary} name="person-outline" size={30} /></View>
-        <View style={{ flex: 1, gap: 7 }}><Text style={{ color: theme.text, fontSize: 15, fontWeight: "700" }}>{email}</Text><StatusPill label={profile?.onboardingComplete ? "Profile complete" : "Setup in progress"} tone={profile?.onboardingComplete ? "primary" : "muted"} /></View>
-      </View>
-      <GlassCard icon="eye-outline" title="Visibility"><Text style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 22 }}>Your profile and Twin remain governed by the privacy choices in your existing Lonagram account. Mobile editing stays disabled until the backend contract is available.</Text></GlassCard>
-      <GlassCard icon="lock-closed-outline" title="Privacy controls"><Text style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 22 }}>Blocking, account deletion, and profile visibility must call real server operations. Manage them in Settings or on lonagram.com until those endpoints are verified.</Text></GlassCard>
-    </PremiumScreen>
-  );
+  const theme = useTheme(); const router = useRouter(); const { session } = useAuth(); const userId = session!.user.id;
+  const bundle = useQuery({ queryKey: ["bundle", userId], queryFn: () => loadMyBundle(userId) });
+  return <PremiumScreen title="Profile"><QueryState loading={bundle.isLoading} error={bundle.error}>{bundle.data ? <><View style={{ alignItems: "center", gap: 10 }}><Avatar name={bundle.data.profile.displayName} uri={bundle.data.profile.avatarUrl} size={88} /><Text style={{ color: theme.text, fontSize: 24, fontWeight: "800" }}>{bundle.data.profile.displayName}</Text><Text style={{ color: theme.textSecondary }}>@{bundle.data.profile.username}</Text><StatusPill label={bundle.data.twin.enabled ? "Twin published" : "Twin private"} tone={bundle.data.twin.enabled ? "primary" : "muted"} /></View><Section><Row icon="person-outline" title="Edit profile" detail="Photo, bio, interests, and intentions" onPress={() => router.push("/profile/edit" as never)} /><Row icon="sparkles-outline" title="My AI Twin" detail="Five behavior questions and publish controls" onPress={() => router.push("/twin" as never)} /><Row icon="shield-checkmark-outline" title="Twin permissions" detail="Choose exactly what your Twin may share" onPress={() => router.push("/privacy" as never)} /><Row icon="settings-outline" title="Settings" detail="Account, privacy, and sign out" onPress={() => router.push("/settings" as never)} /></Section></> : null}</QueryState></PremiumScreen>;
 }

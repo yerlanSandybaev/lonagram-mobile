@@ -77,7 +77,18 @@ This phase does not create an App Store or Play Store submission, an EAS product
 - Move through Discover, Connections, Twin, Chats, and Profile, and open Notifications and Settings.
 - Sign out from Settings.
 
-The app never fills unavailable services with fake content. Discover, connections, Twin editing/chat, and real messaging show explicit disabled or empty states until their authenticated mobile API contracts are available.
+The mobile product now includes:
+
+- Home, Discover, Messages, Notifications, and Profile navigation
+- Profile editing with resized photo selection, interests, languages, and intentions
+- The five core Twin behavior questions, publish/unpublish, and field-level permissions
+- Live discovery profiles and shared interests from Supabase
+- Connection invitations with accept, decline, and ignore controls
+- Private human messaging after an accepted connection
+- Notifications, blocking, and reporting
+- Full-screen, keyboard-safe human and Twin chat layouts
+
+The app never fills unavailable services with fake content. The existing AI turn route authenticates with a Next.js web-session cookie; mobile Twin turns and Twin Signals remain visibly disabled until that server route accepts and verifies a Supabase bearer token. Twin Signal eligibility is still enforced in the UI: the owner Twin must be published and Twin chat permission enabled.
 
 ## EAS profiles
 

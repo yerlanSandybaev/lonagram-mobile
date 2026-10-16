@@ -24,16 +24,11 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ href: null }}
+        options={{ title: "Home", tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "home" : "home-outline"} size={size} /> }}
       />
       <Tabs.Screen
         name="connections"
-        options={{
-          title: "Connections",
-          tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons color={color} name={focused ? "people" : "people-outline"} size={size} />
-          ),
-        }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="discover"
@@ -46,12 +41,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="twins"
-        options={{
-          title: "Twin",
-          tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons color={color} name={focused ? "sparkles" : "sparkles-outline"} size={size} />
-          ),
-        }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="messages"
@@ -61,6 +51,10 @@ export default function TabLayout() {
             <Ionicons color={color} name={focused ? "chatbubble" : "chatbubble-outline"} size={size} />
           ),
         }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{ title: "Notifications", tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "notifications" : "notifications-outline"} size={size} /> }}
       />
       <Tabs.Screen
         name="profile"

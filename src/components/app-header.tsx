@@ -26,12 +26,6 @@ export function AppHeader() {
     >
       <BrandMark size={28} />
       <View style={{ flexDirection: "row", gap: 4 }}>
-        <HeaderButton
-          color={theme.text}
-          icon="notifications-outline"
-          label="Notifications"
-          onPress={() => router.push("/notifications")}
-        />
         <HeaderButton color={theme.text} icon="settings-outline" label="Settings" onPress={() => router.push("/settings")} />
       </View>
     </View>
@@ -45,7 +39,7 @@ function HeaderButton({
   onPress,
 }: {
   color: string;
-  icon: "notifications-outline" | "settings-outline";
+  icon: "settings-outline";
   label: string;
   onPress: () => void;
 }) {

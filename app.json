@@ -32,7 +32,13 @@
           "imageWidth": 120
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Lonagram uses your selected photo as your profile picture."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
