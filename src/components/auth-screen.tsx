@@ -21,7 +21,7 @@ type Mode = "sign-in" | "sign-up";
 
 export function AuthScreen({ mode }: { mode: Mode }) {
   const theme = useTheme();
-  const { configured, configError, signIn, signUp } = useAuth();
+  const { configured, configError, signIn, signUp, signInGoogle } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -158,6 +158,12 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               </Text>
             )}
           </Pressable>
+          {mode === "sign-in" ? <Pressable accessibilityRole="button" disabled={pending || !configured} onPress={async () => {
+            if (pending) return;
+            setPending(true); setMessage(null);
+            try { const result = await signInGoogle(); if (result.error) setMessage({ text: result.error, notice: false }); }
+            finally { setPending(false); }
+          }} style={[styles.button, { borderColor: theme.border, borderWidth: 1 }]}><Text style={{ color: theme.text }}>Continue with Google</Text></Pressable> : null}
           <Text style={[styles.footer, { color: theme.textSecondary }]}>
             {mode === "sign-up" ? "Already have an account? " : "New here? "}
             <Link href={mode === "sign-up" ? "/sign-in" : "/sign-up"} style={{ color: theme.text, textDecorationLine: "underline" }}>

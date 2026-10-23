@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.lonagram.app",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./assets/brand/icon-512.png"
@@ -36,7 +37,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Lonagram uses your selected photo as your profile picture."
+          "photosPermission": "Lonagram uses your selected photo as your profile picture.",
+          "microphonePermission": false
         }
       ]
     ],

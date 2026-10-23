@@ -42,3 +42,8 @@ example
 # generated native folders
 /ios
 /android
+
+# Local dashboard and authorization screenshots
+docs/*-approval.png
+docs/*-authorization.png
+docs/supabase-migration-applied.png

@@ -32,6 +32,8 @@ export function getSupabase(): SupabaseClient | null {
   }
   if (!refreshBound && Platform.OS !== "web") {
     refreshBound = true;
+    if (AppState.currentState === "active") client.auth.startAutoRefresh();
+    else client.auth.stopAutoRefresh();
     AppState.addEventListener("change", (state) => {
       if (state === "active") void client?.auth.startAutoRefresh();
       else void client?.auth.stopAutoRefresh();

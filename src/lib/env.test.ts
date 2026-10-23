@@ -63,3 +63,12 @@ describe("parseMobileEnv", () => {
     expect(env.supabaseKey).toBeUndefined();
   });
 });
+
+// Unknown credentials must not accidentally become public app configuration.
+describe("mobile environment boundaries", () => {
+  it("rejects unrelated keys and credential-bearing or insecure URLs", () => {
+    const valid = { EXPO_PUBLIC_SUPABASE_URL: "https://example.supabase.co", EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_example" };
+    expect(parseMobileEnv({ ...valid, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sk-unrelated" }).configured).toBe(false);
+    for (const url of ["http://example.supabase.co", "https://name:password@example.supabase.co", "https://example.supabase.co/?secret=value"]) expect(parseMobileEnv({ ...valid, EXPO_PUBLIC_SUPABASE_URL: url }).configured).toBe(false);
+  });
+});

@@ -3,9 +3,14 @@ import { Tabs } from "expo-router";
 
 import { AppHeader } from "@/components/app-header";
 import { useTheme } from "@/hooks/use-theme";
+import { useQuery } from "@tanstack/react-query";
+import { loadCounts } from "@/lib/lonagram";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const counts = useQuery({ queryKey: ["counts"], queryFn: loadCounts, refetchInterval: 15_000 });
   return (
     <Tabs
       screenOptions={{
@@ -16,15 +21,15 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: theme.background,
           borderTopColor: theme.border,
-          height: 66,
-          paddingBottom: 8,
+          height: 58 + Math.max(insets.bottom, 8),
+          paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 7,
         },
       }}
     >
       <Tabs.Screen
         name="index"
-        options={{ title: "Home", tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "home" : "home-outline"} size={size} /> }}
+        options={{ title: "Dating", tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "heart" : "heart-outline"} size={size} /> }}
       />
       <Tabs.Screen
         name="connections"
@@ -33,7 +38,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="discover"
         options={{
-          title: "Discover",
+          href: null,
+          title: "Dating",
           tabBarIcon: ({ color, focused, size }) => (
             <Ionicons color={color} name={focused ? "compass" : "compass-outline"} size={size} />
           ),
@@ -47,6 +53,7 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: "Chats",
+          tabBarBadge: counts.data?.messages || undefined,
           tabBarIcon: ({ color, focused, size }) => (
             <Ionicons color={color} name={focused ? "chatbubble" : "chatbubble-outline"} size={size} />
           ),
@@ -54,7 +61,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="notifications"
-        options={{ title: "Notifications", tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "notifications" : "notifications-outline"} size={size} /> }}
+        options={{ title: "Notifications", tabBarBadge: counts.data?.notifications || undefined, tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "notifications" : "notifications-outline"} size={size} /> }}
       />
       <Tabs.Screen
         name="profile"

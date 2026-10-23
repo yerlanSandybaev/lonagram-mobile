@@ -1,104 +1,48 @@
 # Lonagram mobile
 
-Native iOS and Android client for [Lonagram](https://lonagram.com). The current milestone provides secure Supabase authentication and a polished five-tab product shell. It does not replace the website or backend.
+Expo 57 / React Native client for iOS and Android using Lonagram's existing Supabase project and web domain services. No separate database, user system, or model provider lives in this app.
 
-The website remains the Next.js app in [yerlanSandybaev/lonagram](https://github.com/yerlanSandybaev/lonagram). This repository does not import that app, and it does not ship server secrets.
+Start with [the integration map and verification notes](docs/INTEGRATION.md). The server changes are prepared locally in the sibling `lonagram-web-reference` checkout and included as [a reviewable backend patch](docs/backend-integration.patch). The adapter and retry migration were released to the existing production backend on 2026-10-23; see [release verification](docs/RELEASE.md). Integration source is maintained on `codex/mobile-foundation` in the mobile repository and `codex/mobile-backend-integration` in the web repository.
 
-## Architecture
+## Local configuration
 
-The phone is another Supabase client. Signup sends the same user metadata the existing `handle_new_user` trigger already reads: `username`, `display_name`, and `is_18_plus`. The session is encrypted by the platform secure store (iOS Keychain, Android Keystore). Values larger than the store's limit are split into chunks so a full auth session still fits.
+Run `npm ci`, then copy `.env.example` to `.env.local` and configure:
 
-These values stay on the server and are not part of this app:
+- `EXPO_PUBLIC_SUPABASE_URL`: the same project URL as the website.
+- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: that project's public publishable key. `EXPO_PUBLIC_SUPABASE_ANON_KEY` is accepted for a legacy anon key.
+- `EXPO_PUBLIC_LONAGRAM_API_URL`: the existing web origin serving the reviewed `POST /api/mobile/v1` adapter.
 
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENAI_API_KEY`
-- `SESSION_SECRET`
-- `LONAGRAM_API_SECRET`
+Never put `OPENAI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, or `LONAGRAM_API_SECRET` in this repository's mobile environment. Public Expo values are bundled into the app. Invalid/private key types are rejected, but that cannot remove an accidentally embedded secret from an already built bundle.
 
-Twin turns, permission filtering, and cross-user reads stay behind the existing Next.js actions and the Render API. The Render `/rpc` route is an internal API protected by a shared secret. The app does not call it.
+Google sign-in uses the existing Supabase Google provider and PKCE. Allowlist `lonagram://auth/callback` in the same Supabase Auth project. Test the custom scheme in an installed development/standalone build; Expo Go does not own the `lonagram` scheme. No Google client secret belongs in the mobile app. See [Supabase mobile redirects](https://supabase.com/docs/guides/auth/native-mobile-deep-linking).
 
-Pure signup rules that must match the website live in `src/lib/auth-input.ts` and are covered by Vitest. Moving `src/domain` out of the website into a shared package would mean restructuring the production app. That wait is intentional for this phase.
+API origins must use HTTPS, except localhost for local testing. Use an HTTPS tunnel to a local web adapter for a physical phone. Restart Metro after changing `.env.local`. Browser preview is not a substitute for native authentication testing: session persistence uses the device secure store.
 
-## Configure
+## Run and check
 
-```bash
-npm install
-copy .env.example .env.local
-```
-
-Set the two public values from the same Supabase project the website uses (Project Settings → API):
-
-```
-EXPO_PUBLIC_SUPABASE_URL=
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-```
-
-`EXPO_PUBLIC_SUPABASE_ANON_KEY` is accepted as an alias for the website's public anon key. If the value is a service-role or secret key, the app refuses to create a client. Restart Expo after changing `.env.local`.
-
-Leave both values empty to open the sign-in screen without a project. Sign-in will not succeed until they are set.
-
-## Checks
-
-```bash
-npm run typecheck
-npm test
-```
-
-## Android
-
-1. Install [Android Studio](https://developer.android.com/studio) and an Android emulator, or use a phone with [Expo Go](https://expo.dev/go).
-2. Start the emulator, or connect the phone with USB debugging enabled.
-3. From this directory:
-
-```bash
+```sh
+npm run check
+npm start
 npm run android
 ```
 
-That starts Metro and opens the app on the emulator or connected device. You can also run `npm start` and press `a`.
+Local iOS Simulator execution requires macOS and Xcode (`npm run ios`). Windows can produce both platforms' JavaScript/Hermes bundles:
 
-On a physical phone with Expo Go, `npm start` prints a QR code. The phone and the computer need to be on the same network. If the phone cannot reach Metro, run `npx expo start --tunnel`.
-
-## iOS
-
-A local iOS Simulator build needs macOS and Xcode. On a Mac:
-
-```bash
-npm run ios
+```sh
+npx expo export --platform ios --platform android --output-dir dist --max-workers 2
 ```
 
-From Windows, install Expo Go on an iPhone, run `npm start`, and scan the QR code. The phone and the computer need to be on the same network, or use `npx expo start --tunnel`.
+These are bundle checks, not signed IPA/APK builds. No EAS project, signing credentials, store submission, or deployment has been created.
 
-This phase does not create an App Store or Play Store submission, an EAS production build, or a development-build binary. `com.lonagram.app` is the local bundle identifier for later device builds.
+## Implemented client flows
 
-## What you can do in this version
+- Email auth, secure persisted sessions, foreground refresh, logout, and Google PKCE callbacks.
+- Shared-profile onboarding with explicit 18+ confirmation and optional Twin publication.
+- Dating as the first tab, preferences, private likes, Twin entry, and connection invitations.
+- Separate Twin and Personal conversations, guarded sends, retained in-memory drafts, and retry keys.
+- Server-generated unread counts, grouped notification reads, and known web-to-mobile notification links.
+- Profile/photo editing, Twin settings and permissions, blocking/unblocking, reports, and typed account deletion confirmation.
 
-- Create an account with email, password, username, display name, and the 18+ confirmation.
-- Sign in and stay signed in after the app restarts.
-- Move through Discover, Connections, Twin, Chats, and Profile, and open Notifications and Settings.
-- Sign out from Settings.
+Business operations require the web adapter. The client does not fall back to direct table writes or call Render's private `/rpc`. If the backend is unavailable, the app shows an error and keeps chat drafts. Drafts are cleared on logout/account changes and are not saved across process termination.
 
-The mobile product now includes:
-
-- Home, Discover, Messages, Notifications, and Profile navigation
-- Profile editing with resized photo selection, interests, languages, and intentions
-- The five core Twin behavior questions, publish/unpublish, and field-level permissions
-- Live discovery profiles and shared interests from Supabase
-- Connection invitations with accept, decline, and ignore controls
-- Private human messaging after an accepted connection
-- Notifications, blocking, and reporting
-- Full-screen, keyboard-safe human and Twin chat layouts
-
-The app never fills unavailable services with fake content. The existing AI turn route authenticates with a Next.js web-session cookie; mobile Twin turns and Twin Signals remain visibly disabled until that server route accepts and verifies a Supabase bearer token. Twin Signal eligibility is still enforced in the UI: the owner Twin must be published and Twin chat permission enabled.
-
-## EAS profiles
-
-`eas.json` includes development, internal preview, and production profiles. Building still requires an Expo account, an EAS project link, and the relevant Apple or Google credentials:
-
-```bash
-npx eas-cli build --profile preview --platform android
-npx eas-cli build --profile preview --platform ios
-```
-
-No store submission is performed by this repository configuration alone.
-
-Google sign-in is not in this version. The website shows it only when Supabase Google auth is configured, and the native redirect still needs to be registered on that project.
+The backend migration was applied, with user authorization, to the existing Supabase project on 2026-10-23. It provides private request tracking; guarded sends refuse to run if that storage is unavailable. An interrupted request remains pending for reconciliation; it is never silently executed twice.

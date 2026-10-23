@@ -15,7 +15,7 @@ function blank(value: string | undefined): string | undefined {
 function isHttpUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
+    return !url.username && !url.password && !url.search && !url.hash && url.pathname === "/" && (url.protocol === "https:" || (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)));
   } catch {
     return false;
   }
@@ -59,13 +59,16 @@ export function parseMobileEnv(source: Record<string, string | undefined>): Mobi
     };
   }
   if (!isHttpUrl(supabaseUrl)) {
-    return { configured: false, error: "EXPO_PUBLIC_SUPABASE_URL must be an http or https URL." };
+    return { configured: false, error: "EXPO_PUBLIC_SUPABASE_URL must be an HTTPS origin (HTTP is allowed only on localhost)." };
   }
   if (isSecretKey(supabaseKey)) {
     return {
       configured: false,
       error: "The Supabase key is a secret key. Use the publishable or anon key.",
     };
+  }
+  if (!supabaseKey.startsWith("sb_publishable_") && jwtRole(supabaseKey) !== "anon") {
+    return { configured: false, error: "Use a Supabase publishable or anon key." };
   }
   return { supabaseUrl, supabaseKey, configured: true };
 }

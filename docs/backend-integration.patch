@@ -1,0 +1,1129 @@
+diff --git a/src/db/supabase-store.ts b/src/db/supabase-store.ts
+index b5e82df..374c94e 100644
+--- a/src/db/supabase-store.ts
++++ b/src/db/supabase-store.ts
+@@ -306,14 +306,10 @@ export function createSupabaseStore(client: SupabaseClient): DataStore {
+       throw new Error("Create Supabase users through Supabase Auth.");
+     },
+     async deleteUser(id) {
+-      try {
+-        const removed = await client.auth.admin.deleteUser(id);
+-        if (!removed.error) return;
+-      } catch {
+-        // User JWT clients cannot call admin.deleteUser; fall through to profile delete.
+-      }
+-      const fallback = await client.from("profiles").delete().eq("id", id);
+-      if (fallback.error) throw new Error(fallback.error.message);
++      const removed = await client.auth.admin.deleteUser(id);
++      // Never report account deletion after removing only a profile. Auth must
++      // actually be deleted; an authorization failure must preserve user data.
++      if (removed.error) throw new Error("Could not delete the account. Please try again.");
+     },
+     async getProfile(id) {
+       const data = await run<Row | null>(client.from("profiles").select("*").eq("id", id).maybeSingle());
+diff --git a/src/domain/schemas.ts b/src/domain/schemas.ts
+index b415252..c594039 100644
+--- a/src/domain/schemas.ts
++++ b/src/domain/schemas.ts
+@@ -89,6 +89,8 @@ export const onboardingSchema = z.object({
+   avatarUrl: z.string().max(180_000).nullable().optional(),
+   dating: datingPreferencesSchema.optional(),
+   publishTwin: z.boolean().optional(),
++  // OAuth-created accounts do not pass through the password signup checkbox.
++  adultConfirmation: z.literal(true).optional(),
+   maxTurns: z.number().int().min(2).max(LIMITS.maxTurnsCap).optional(),
+   tokenBudget: z.number().int().min(LIMITS.tokenBudgetMin).max(LIMITS.tokenBudgetCap).optional(),
+ });
+diff --git a/src/domain/service.ts b/src/domain/service.ts
+index 40408c7..1a4b776 100644
+--- a/src/domain/service.ts
++++ b/src/domain/service.ts
+@@ -392,7 +392,8 @@ export function createServices(deps: ServiceDeps) {
+     async saveOnboarding(actorId: string, input: OnboardingInput): Promise<Result<{ username: string }>> {
+       const profile = await store.getProfile(actorId);
+       if (!profile) return fail("Account not found.", "not_found");
+-      if (input.dating?.enabled && !profile.is18Plus) return fail("Dating is available only to adults 18 and older.", "age");
++      const is18Plus = profile.is18Plus || input.adultConfirmation === true;
++      if (input.dating?.enabled && !is18Plus) return fail("Dating is available only to adults 18 and older.", "age");
+       if (input.dating?.enabled && input.dating.locationScope === "same_city" && !input.city.trim()) return fail("Add your city or choose anywhere before enabling dating.", "validation");
+       const existing = await store.getProfileByUsername(input.username);
+       if (existing && existing.id !== actorId) return fail("That username is taken.", "username");
+@@ -407,6 +408,7 @@ export function createServices(deps: ServiceDeps) {
+       const guardedIntro = guardOutput(intro, input.neverDisclose, input.displayName).text;
+       const nextProfile: Profile = {
+         ...profile,
++        is18Plus,
+         username: input.username,
+         displayName: input.displayName,
+         bio: sanitizeText(input.bio, LIMITS.maxBioLength),
+diff --git a/src/app/api/mobile/v1/route.ts b/src/app/api/mobile/v1/route.ts
+new file mode 100644
+--- /dev/null
++++ b/src/app/api/mobile/v1/route.ts
+@@ -0,0 +1,88 @@
++import "server-only";
++import { createClient } from "@supabase/supabase-js";
++import { getEnv } from "@/lib/env";
++import { createAppServices } from "@/server/runtime";
++import { mobileHandler, type MobileLedger } from "@/server/mobile-handler";
++
++export const runtime = "nodejs";
++export async function POST(request: Request) {
++  const env = getEnv();
++  // Never fall back to the demo store or a browser-cookie client here.
++  if (
++    !env.supabaseConfigured ||
++    !env.supabaseUrl ||
++    !env.supabaseAnonKey ||
++    !env.supabaseServiceRoleKey
++  ) {
++    return Response.json(
++      {
++        ok: false,
++        error: "Mobile access is not configured.",
++        code: "configuration",
++      },
++      { status: 503, headers: { "Cache-Control": "no-store" } },
++    );
++  }
++  const auth = createClient(env.supabaseUrl, env.supabaseAnonKey, {
++    auth: { persistSession: false, autoRefreshToken: false },
++  });
++  const admin = createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
++    auth: { persistSession: false, autoRefreshToken: false },
++  });
++  const ledger: MobileLedger = {
++    async reserve(actor, operation, key, hash) {
++      const inserted = await admin
++        .from("mobile_requests")
++        .insert({
++          actor_id: actor,
++          operation,
++          request_key: key,
++          input_hash: hash,
++          state: "pending",
++        });
++      if (!inserted.error) return { kind: "new" };
++      if (inserted.error.code !== "23505")
++        throw new Error("ledger unavailable");
++      const prior = await admin
++        .from("mobile_requests")
++        .select("input_hash,state,result")
++        .eq("actor_id", actor)
++        .eq("operation", operation)
++        .eq("request_key", key)
++        .single();
++      if (prior.error) throw new Error("ledger unavailable");
++      if (prior.data.input_hash !== hash) return { kind: "conflict" };
++      return prior.data.state === "complete"
++        ? { kind: "replay", result: prior.data.result }
++        : { kind: "pending" };
++    },
++    async finish(actor, operation, key, result) {
++      const saved = await admin
++        .from("mobile_requests")
++        .update({ state: "complete", result })
++        .eq("actor_id", actor)
++        .eq("operation", operation)
++        .eq("request_key", key)
++        .select("request_key")
++        .single();
++      if (saved.error) throw new Error("ledger unavailable");
++    },
++  };
++  return mobileHandler({
++    verify: async (token) => {
++      const { data, error } = await auth.auth.getUser(token);
++      return error ? null : (data.user?.id ?? null);
++    },
++    services: createAppServices,
++    ledger,
++    beforeDelete: async (token, actor) => {
++      const revoked = await admin.auth.admin.signOut(token, "global");
++      if (revoked.error) throw revoked.error;
++      const cleared = await admin
++        .from("mobile_requests")
++        .delete()
++        .eq("actor_id", actor);
++      if (cleared.error) throw cleared.error;
++    },
++  })(request);
++}
+diff --git a/src/server/mobile-contract.ts b/src/server/mobile-contract.ts
+new file mode 100644
+--- /dev/null
++++ b/src/server/mobile-contract.ts
+@@ -0,0 +1,268 @@
++import { z } from "zod";
++import type { Services } from "@/domain/service";
++import {
++  onboardingSchema,
++  permissionSchema,
++  datingPreferencesSchema,
++  reportSchema,
++} from "@/domain/schemas";
++import { twinTimelineLine } from "@/domain/twin-inbox";
++
++const none = z.object({}).strict();
++const uuid = z.uuid();
++const other = z.object({ otherId: uuid }).strict();
++const thread = z.object({ conversationId: uuid }).strict();
++const permissionsPatch = permissionSchema.partial().strict();
++const profilePatch = onboardingSchema
++  .pick({
++    username: true,
++    displayName: true,
++    bio: true,
++    avatarUrl: true,
++    city: true,
++    languages: true,
++    intentions: true,
++  })
++  .strict();
++const twinPatch = onboardingSchema
++  .pick({
++    personality: true,
++    topics: true,
++    lookingFor: true,
++    communicationStyle: true,
++    hobbies: true,
++    interestingConversation: true,
++    publicIntroduction: true,
++  })
++  .extend({ enabled: z.boolean() })
++  .strict();
++
++export const mobileSchemas = {
++  "settings.get": none,
++  "home.get": none,
++  "dating.get": none,
++  "dating.discover": none,
++  "dating.update": z.object({ preferences: datingPreferencesSchema }).strict(),
++  "dating.like": other,
++  "onboarding.complete": onboardingSchema.strict(),
++  "profile.update": z
++    .object({
++      profile: profilePatch,
++      interests: onboardingSchema.shape.interests,
++    })
++    .strict(),
++  "twin.update": z.object({ twin: twinPatch }).strict(),
++  "permissions.update": z.object({ permissions: permissionsPatch }).strict(),
++  "twin.start": other,
++  "twin.get": thread,
++  "twin.list": none,
++  "twin.turn": thread
++    .extend({ cue: z.string().trim().min(1).max(2000) })
++    .strict(),
++  "twin.inbox": thread.extend({ lastSeenId: uuid }).strict(),
++  "connection.request": other
++    .extend({
++      source: z.enum(["discover", "twin_chat"]),
++      twinId: uuid.optional(),
++    })
++    .strict(),
++  "connection.respond": z
++    .object({
++      requestId: uuid,
++      decision: z.enum(["accepted", "rejected", "ignored"]),
++    })
++    .strict(),
++  "messages.list": none,
++  "messages.get": thread,
++  "messages.send": thread
++    .extend({ body: z.string().trim().min(1).max(2000) })
++    .strict(),
++  "notifications.list": none,
++  "notifications.read": z.object({ id: uuid }).strict(),
++  "notifications.readAll": none,
++  "unread.get": none,
++  "safety.block": other,
++  "safety.unblock": other,
++  "safety.report": reportSchema.strict(),
++  "account.delete": z
++    .object({ username: z.string().trim().min(3).max(20) })
++    .strict(),
++} as const;
++export type MobileOperation = keyof typeof mobileSchemas;
++export const guardedOperations = new Set<MobileOperation>([
++  "dating.like",
++  "twin.start",
++  "twin.turn",
++  "connection.request",
++  "connection.respond",
++  "messages.send",
++  "safety.report",
++]);
++
++// Explicit dispatch only. This endpoint never exposes arbitrary service/RPC methods.
++export async function dispatchMobile(
++  services: Services,
++  actor: string,
++  operation: MobileOperation,
++  raw: unknown,
++) {
++  const parse = <T extends MobileOperation>(name: T) =>
++    mobileSchemas[name].parse(raw) as z.infer<(typeof mobileSchemas)[T]>;
++  switch (operation) {
++    case "settings.get":
++      return services.getSettings(actor);
++    case "home.get":
++      return services.getHome(actor);
++    case "dating.get":
++      return services.getDating(actor);
++    case "dating.discover":
++      return services.discover(actor, { filter: "dating", limit: 24 });
++    case "dating.update":
++      return services.saveDatingPreferences(
++        actor,
++        parse(operation).preferences,
++      );
++    case "dating.like":
++      return services.likeDatingProfile(actor, parse(operation).otherId);
++    case "onboarding.complete":
++      return services.completeOnboarding(actor, {
++        ...parse(operation),
++        publishTwin: parse(operation).publishTwin ?? false,
++      });
++    case "profile.update": {
++      const value = parse(operation);
++      const current = await services.getSettings(actor);
++      if (!current.ok) return current;
++      if (!current.data.profile.onboardingComplete)
++        return {
++          ok: false as const,
++          error: "Complete onboarding first.",
++          code: "onboarding",
++        };
++      return services.completeOnboarding(actor, {
++        ...current.data.twin,
++        ...current.data.profile,
++        ...value.profile,
++        interests: value.interests,
++        permissions: current.data.permissions,
++      });
++    }
++    case "twin.update": {
++      const value = parse(operation);
++      const current = await services.getSettings(actor);
++      if (!current.ok) return current;
++      const result = await services.completeOnboarding(actor, {
++        ...current.data.profile,
++        ...current.data.twin,
++        ...value.twin,
++        interests: current.data.interests,
++        permissions: current.data.permissions,
++        publishTwin: false,
++      });
++      return result.ok
++        ? services.setTwinEnabled(actor, value.twin.enabled)
++        : result;
++    }
++    case "permissions.update": {
++      const current = await services.getSettings(actor);
++      if (!current.ok) return current;
++      return services.updatePermissions(actor, {
++        ...current.data.permissions,
++        ...parse(operation).permissions,
++      });
++    }
++    case "twin.start":
++      return services.startTwinConversation(actor, parse(operation).otherId);
++    case "twin.get": {
++      const result = await services.getTwinThread(
++        actor,
++        parse(operation).conversationId,
++      );
++      return result.ok
++        ? {
++            ok: true as const,
++            data: {
++              ...result.data,
++              messages: result.data.messages.map((message) => {
++                const line = twinTimelineLine(message);
++                return {
++                  id: message.id,
++                  speakerUserId: message.speakerUserId,
++                  body: line.text,
++                  fromPerson: line.fromPerson,
++                  personalKind: message.personalKind,
++                  createdAt: message.createdAt,
++                };
++              }),
++            },
++          }
++        : result;
++    }
++    case "twin.list":
++      return services.listTwinThreads(actor);
++    case "twin.turn": {
++      const value = parse(operation);
++      return services.runTurn(actor, value.conversationId, value.cue);
++    }
++    case "twin.inbox": {
++      const value = parse(operation);
++      return services.updateTwinInbox(actor, value.conversationId, {
++        lastSeenId: value.lastSeenId,
++      });
++    }
++    case "connection.request": {
++      const value = parse(operation);
++      return services.requestConnection(
++        actor,
++        value.otherId,
++        value.source,
++        value.twinId ?? null,
++        false,
++      );
++    }
++    case "connection.respond": {
++      const value = parse(operation);
++      return services.respondConnection(actor, value.requestId, value.decision);
++    }
++    case "messages.list":
++      return services.listDirectThreads(actor);
++    case "messages.get":
++      return services.getDirectThread(actor, parse(operation).conversationId);
++    case "messages.send": {
++      const value = parse(operation);
++      return services.sendDirectMessage(
++        actor,
++        value.conversationId,
++        value.body,
++      );
++    }
++    case "notifications.list":
++      return services.listNotifications(actor);
++    case "notifications.read":
++      return services.markNotificationRead(actor, parse(operation).id);
++    case "notifications.readAll":
++      return services.markAllNotificationsRead(actor);
++    case "unread.get":
++      return services.counts(actor);
++    case "safety.block":
++      return services.blockUser(actor, parse(operation).otherId);
++    case "safety.unblock":
++      return services.unblockUser(actor, parse(operation).otherId);
++    case "safety.report":
++      return services.report(actor, parse(operation));
++    case "account.delete": {
++      const current = await services.getSettings(actor);
++      if (!current.ok) return current;
++      if (
++        parse(operation).username.toLowerCase() !==
++        current.data.profile.username
++      )
++        return {
++          ok: false as const,
++          error: "Type your username to confirm.",
++          code: "validation",
++        };
++      return services.deleteAccount(actor);
++    }
++  }
++}
+diff --git a/src/server/mobile-handler.ts b/src/server/mobile-handler.ts
+new file mode 100644
+--- /dev/null
++++ b/src/server/mobile-handler.ts
+@@ -0,0 +1,217 @@
++import { createHash } from "node:crypto";
++import { z } from "zod";
++import type { Services } from "@/domain/service";
++import {
++  dispatchMobile,
++  guardedOperations,
++  mobileSchemas,
++  type MobileOperation,
++} from "@/server/mobile-contract";
++
++type Result = { ok: boolean; data?: unknown; error?: string; code?: string };
++export type Reservation =
++  | { kind: "new" }
++  | { kind: "pending" | "conflict" }
++  | { kind: "replay"; result: Result };
++export type MobileLedger = {
++  reserve: (
++    actor: string,
++    operation: string,
++    key: string,
++    hash: string,
++  ) => Promise<Reservation>;
++  finish: (
++    actor: string,
++    operation: string,
++    key: string,
++    result: Result,
++  ) => Promise<void>;
++};
++const envelope = z
++  .object({ operation: z.string(), input: z.unknown() })
++  .strict();
++function reply(result: Result, status?: number) {
++  const code = result.code ?? "";
++  const inferred = result.ok
++    ? 200
++    : code.includes("rate")
++      ? 429
++      : code === "not_found"
++        ? 404
++        : ["blocked", "forbidden"].includes(code)
++          ? 403
++          : 400;
++  return Response.json(result, {
++    status: status ?? inferred,
++    headers: { "Cache-Control": "private, no-store", Vary: "Authorization" },
++  });
++}
++async function boundedJson(request: Request) {
++  const reader = request.body?.getReader();
++  if (!reader) throw new Error("body");
++  const chunks: Uint8Array[] = [];
++  let size = 0;
++  try {
++    while (true) {
++      const part = await reader.read();
++      if (part.done) break;
++      size += part.value.byteLength;
++      if (size > 250_000) {
++        await reader.cancel();
++        throw new Error("size");
++      }
++      chunks.push(part.value);
++    }
++  } finally {
++    reader.releaseLock();
++  }
++  const bytes = new Uint8Array(size);
++  let offset = 0;
++  for (const chunk of chunks) {
++    bytes.set(chunk, offset);
++    offset += chunk.length;
++  }
++  return JSON.parse(new TextDecoder().decode(bytes));
++}
++export function mobileHandler(deps: {
++  verify: (token: string) => Promise<string | null>;
++  services: () => Services;
++  ledger: MobileLedger;
++  beforeDelete?: (token: string, actor: string) => Promise<void>;
++}) {
++  return async (request: Request) => {
++    const token = /^Bearer ([^\s]+)$/.exec(
++      request.headers.get("Authorization") ?? "",
++    )?.[1];
++    if (!token)
++      return reply(
++        { ok: false, error: "Sign in required.", code: "unauthenticated" },
++        401,
++      );
++    let actor: string | null;
++    try {
++      actor = await deps.verify(token);
++    } catch {
++      return reply(
++        {
++          ok: false,
++          error: "Authentication unavailable.",
++          code: "auth_unavailable",
++        },
++        503,
++      );
++    }
++    if (!actor)
++      return reply(
++        { ok: false, error: "Sign in required.", code: "unauthenticated" },
++        401,
++      );
++    if (!request.headers.get("content-type")?.includes("application/json"))
++      return reply(
++        { ok: false, error: "JSON required.", code: "validation" },
++        415,
++      );
++    let body: z.infer<typeof envelope>;
++    try {
++      body = envelope.parse(await boundedJson(request));
++    } catch {
++      return reply(
++        {
++          ok: false,
++          error: "Invalid or oversized request.",
++          code: "validation",
++        },
++        400,
++      );
++    }
++    if (!Object.hasOwn(mobileSchemas, body.operation))
++      return reply(
++        { ok: false, error: "Unknown operation.", code: "validation" },
++        400,
++      );
++    const operation = body.operation as MobileOperation;
++    const parsed = mobileSchemas[operation].safeParse(body.input);
++    if (!parsed.success)
++      return reply(
++        {
++          ok: false,
++          error: parsed.error.issues[0]?.message ?? "Check your input.",
++          code: "validation",
++        },
++        400,
++      );
++    const key = request.headers.get("Idempotency-Key");
++    const guarded = guardedOperations.has(operation);
++    if (guarded && (!key || !/^[a-zA-Z0-9:_-]{8,200}$/.test(key)))
++      return reply(
++        {
++          ok: false,
++          error: "A valid request key is required.",
++          code: "idempotency",
++        },
++        400,
++      );
++    try {
++      if (guarded && key) {
++        const hash = createHash("sha256")
++          .update(JSON.stringify(parsed.data))
++          .digest("hex");
++        const reservation = await deps.ledger.reserve(
++          actor,
++          operation,
++          key,
++          hash,
++        );
++        if (reservation.kind === "replay") return reply(reservation.result);
++        if (reservation.kind !== "new")
++          return reply(
++            {
++              ok: false,
++              error:
++                reservation.kind === "pending"
++                  ? "This request is still being checked. Retry the same draft later."
++                  : "This request key belongs to different content.",
++              code: reservation.kind,
++            },
++            409,
++          );
++      }
++      if (operation === "account.delete" && deps.beforeDelete) {
++        // Validate ownership/confirmation before revoking sessions.
++        const settings = await deps.services().getSettings(actor);
++        if (!settings.ok) return reply(settings);
++        if (
++          (parsed.data as { username: string }).username.toLowerCase() !==
++          settings.data.profile.username
++        )
++          return reply({
++            ok: false,
++            error: "Type your username to confirm.",
++            code: "validation",
++          });
++        await deps.beforeDelete(token, actor);
++      }
++      const result = await dispatchMobile(
++        deps.services(),
++        actor,
++        operation,
++        parsed.data,
++      );
++      if (guarded && key)
++        await deps.ledger.finish(actor, operation, key, result);
++      return reply(result);
++    } catch {
++      // A reserved request stays pending after an uncertain failure. Never run it
++      // twice automatically; an operator can reconcile it against stored effects.
++      return reply(
++        {
++          ok: false,
++          error:
++            "The operation could not be confirmed. Retry the same request later.",
++          code: "unavailable",
++        },
++        503,
++      );
++    }
++  };
++}
+diff --git a/src/server/mobile-handler.test.ts b/src/server/mobile-handler.test.ts
+new file mode 100644
+--- /dev/null
++++ b/src/server/mobile-handler.test.ts
+@@ -0,0 +1,454 @@
++import { beforeEach, describe, expect, it, vi } from "vitest";
++import { buildDemoSeedData, SEED_IDS } from "@/db/seed";
++import { createMemoryStore } from "@/db/store";
++import { createServices } from "@/domain/service";
++import { clearContextCache } from "@/domain/context-cache";
++import { mobileHandler, type MobileLedger } from "@/server/mobile-handler";
++
++function fixture() {
++  const store = createMemoryStore(buildDemoSeedData());
++  const services = createServices({ store });
++  type Row = {
++    hash: string;
++    result?: { ok: boolean; data?: unknown; error?: string; code?: string };
++  };
++  const rows = new Map<string, Row>();
++  const ledger: MobileLedger = {
++    async reserve(actor, op, key, hash) {
++      const scope = `${actor}:${op}:${key}`;
++      const prior = rows.get(scope);
++      if (!prior) {
++        rows.set(scope, { hash });
++        return { kind: "new" };
++      }
++      if (prior.hash !== hash) return { kind: "conflict" };
++      return prior.result
++        ? { kind: "replay", result: prior.result }
++        : { kind: "pending" };
++    },
++    async finish(actor, op, key, result) {
++      rows.get(`${actor}:${op}:${key}`)!.result = result;
++    },
++  };
++  const verify = vi.fn(async (token: string) =>
++    Object.values(SEED_IDS).some((id) => id === token) ? token : null,
++  );
++  const handler = mobileHandler({ verify, services: () => services, ledger });
++  async function call(
++    actor: string,
++    operation: string,
++    input: unknown = {},
++    key?: string,
++  ) {
++    const response = await handler(
++      new Request("https://fixture.test/api/mobile/v1", {
++        method: "POST",
++        headers: {
++          "Content-Type": "application/json",
++          Authorization: `Bearer ${actor}`,
++          ...(key ? { "Idempotency-Key": key } : {}),
++        },
++        body: JSON.stringify({ operation, input }),
++      }),
++    );
++    return { status: response.status, body: await response.json() };
++  }
++  return { store, services, handler, call, verify, ledger };
++}
++
++describe("mobile HTTP adapter using isolated domain fixtures", () => {
++  beforeEach(clearContextCache);
++  it("rejects cookie-only, malformed, and invalid bearer auth before dispatch", async () => {
++    const { handler, call } = fixture();
++    const cookie = await handler(
++      new Request("https://fixture.test/api/mobile/v1", {
++        method: "POST",
++        headers: { Cookie: `lonagram_session=${SEED_IDS.elena}` },
++        body: "{}",
++      }),
++    );
++    expect(cookie.status).toBe(401);
++    expect((await call("untrusted", "settings.get")).status).toBe(401);
++    expect(cookie.headers.get("Cache-Control")).toContain("no-store");
++  });
++  it("rejects client-supplied actor fields and non-allowlisted operations", async () => {
++    const { call } = fixture();
++    expect(
++      (await call(SEED_IDS.elena, "settings.get", { userId: SEED_IDS.noah }))
++        .status,
++    ).toBe(400);
++    expect((await call(SEED_IDS.elena, "deleteUser", {})).status).toBe(400);
++    expect(
++      (
++        await call(
++          SEED_IDS.elena,
++          "messages.send",
++          {
++            actorId: SEED_IDS.noah,
++            conversationId: SEED_IDS.noah,
++            body: "Hello",
++          },
++          "fixture-request",
++        )
++      ).status,
++    ).toBe(400);
++  });
++  it("runs Twin → invitation → mutual acceptance → personal messages, read state, and blocking", async () => {
++    const { call, store } = fixture();
++    const visitor = SEED_IDS.elena;
++    const owner = SEED_IDS.noah;
++    const deck = await call(visitor, "dating.discover");
++    expect(deck.body.data.map((person: { id: string }) => person.id)).toContain(
++      owner,
++    );
++    const started = await call(
++      visitor,
++      "twin.start",
++      { otherId: owner },
++      "fixture-start",
++    );
++    expect(started.status).toBe(200);
++    const twinId = started.body.data.id;
++    const turn = await call(
++      visitor,
++      "twin.turn",
++      { conversationId: twinId, cue: "What do you enjoy?" },
++      "fixture-turn",
++    );
++    expect(turn.status).toBe(200);
++    const thread = await call(visitor, "twin.get", { conversationId: twinId });
++    expect(thread.body.data.messages.length).toBeGreaterThan(0);
++    expect(
++      thread.body.data.messages.every(
++        (message: { body: unknown; fromPerson: unknown }) =>
++          typeof message.body === "string" &&
++          typeof message.fromPerson === "boolean",
++      ),
++    ).toBe(true);
++    const invited = await call(
++      visitor,
++      "connection.request",
++      { otherId: owner, source: "twin_chat", twinId },
++      "fixture-connect",
++    );
++    expect(invited.status).toBe(200);
++    const requestId = invited.body.data.requestId;
++    expect(
++      (
++        await call(
++          visitor,
++          "connection.respond",
++          { requestId, decision: "accepted" },
++          "fixture-self-accept",
++        )
++      ).status,
++    ).toBe(404);
++    const accepted = await call(
++      owner,
++      "connection.respond",
++      { requestId, decision: "accepted" },
++      "fixture-accept",
++    );
++    expect(accepted.status).toBe(200);
++    const conversationId = accepted.body.data.conversationId;
++    const input = { conversationId, body: "Would you like to get coffee?" };
++    const sent = await call(visitor, "messages.send", input, "fixture-send");
++    expect(sent.status).toBe(200);
++    expect(
++      (await call(visitor, "messages.send", input, "fixture-send")).body,
++    ).toEqual(sent.body);
++    expect(await store.listDirectMessages(conversationId)).toHaveLength(1);
++    expect((await call(owner, "unread.get")).body.data.messages).toBe(1);
++    expect(
++      (await call(SEED_IDS.davinci, "messages.get", { conversationId })).status,
++    ).toBe(404);
++    expect((await call(owner, "messages.get", { conversationId })).status).toBe(
++      200,
++    );
++    expect((await call(owner, "unread.get")).body.data.messages).toBe(0);
++    await call(owner, "notifications.readAll");
++    expect((await call(owner, "unread.get")).body.data.notifications).toBe(0);
++    await call(owner, "safety.block", { otherId: visitor });
++    expect(
++      (
++        await call(
++          visitor,
++          "messages.send",
++          { conversationId, body: "Hello again" },
++          "fixture-blocked-send",
++        )
++      ).status,
++    ).toBe(403);
++    expect(await store.listDirectMessages(conversationId)).toHaveLength(1);
++  });
++  it("rejects changed content on the same key and requires keys for guarded writes", async () => {
++    const { call } = fixture();
++    expect(
++      (await call(SEED_IDS.elena, "twin.start", { otherId: SEED_IDS.noah }))
++        .status,
++    ).toBe(400);
++    expect(
++      (
++        await call(
++          SEED_IDS.elena,
++          "twin.start",
++          { otherId: SEED_IDS.noah },
++          "fixture-key",
++        )
++      ).status,
++    ).toBe(200);
++    expect(
++      (
++        await call(
++          SEED_IDS.elena,
++          "twin.start",
++          { otherId: SEED_IDS.davinci },
++          "fixture-key",
++        )
++      ).status,
++    ).toBe(409);
++  });
++  it("keeps uncertain requests pending instead of running them twice", async () => {
++    const { ledger, services } = fixture();
++    const send = vi
++      .spyOn(services, "startTwinConversation")
++      .mockRejectedValue(new Error("lost result"));
++    const handler = mobileHandler({
++      verify: async () => SEED_IDS.elena,
++      services: () => services,
++      ledger,
++    });
++    const request = () =>
++      new Request("https://fixture.test", {
++        method: "POST",
++        headers: {
++          "Content-Type": "application/json",
++          Authorization: "Bearer fixture",
++          "Idempotency-Key": "fixture-uncertain",
++        },
++        body: JSON.stringify({
++          operation: "twin.start",
++          input: { otherId: SEED_IDS.noah },
++        }),
++      });
++    expect((await handler(request())).status).toBe(503);
++    expect((await handler(request())).status).toBe(409);
++    expect(send).toHaveBeenCalledTimes(1);
++  });
++  it("preserves advanced settings and private fields during mobile profile and permission edits", async () => {
++    const { call, store } = fixture();
++    const actor = SEED_IDS.elena;
++    const prior = (await store.getTwin(actor))!;
++    await store.upsertTwin({
++      ...prior,
++      neverDisclose: ["private fixture"],
++      expertise: ["fixture expertise"],
++    });
++    const profile = (await store.getProfile(actor))!;
++    const result = await call(actor, "profile.update", {
++      profile: {
++        username: profile.username,
++        displayName: profile.displayName,
++        bio: "Updated bio",
++        city: profile.city ?? "",
++        languages: profile.languages,
++        intentions: profile.intentions,
++        avatarUrl: profile.avatarUrl,
++      },
++      interests: await store.listInterests(actor),
++    });
++    expect(result.status).toBe(200);
++    expect(await store.getTwin(actor)).toMatchObject({
++      neverDisclose: ["private fixture"],
++      expertise: ["fixture expertise"],
++      enabled: prior.enabled,
++    });
++    const permissions = (await store.getPermissions(actor))!;
++    expect(
++      (
++        await call(actor, "permissions.update", {
++          permissions: { shareCity: !permissions.shareCity },
++        })
++      ).status,
++    ).toBe(200);
++    expect(await store.getPermissions(actor)).toMatchObject({
++      shareCity: !permissions.shareCity,
++      shareExpertise: permissions.shareExpertise,
++    });
++  });
++  it("requires typed confirmation and deletes only the verified actor in a local fixture", async () => {
++    const { call, store } = fixture();
++    const actor = (await store.getProfile(SEED_IDS.elena))!;
++    expect(
++      (await call(actor.id, "account.delete", { username: "wrong" })).status,
++    ).toBe(400);
++    expect(await store.getProfile(actor.id)).not.toBeNull();
++    expect(
++      (await call(actor.id, "account.delete", { username: actor.username }))
++        .status,
++    ).toBe(200);
++    expect(await store.getProfile(actor.id)).toBeNull();
++    expect(await store.getProfile(SEED_IDS.noah)).not.toBeNull();
++  });
++});
++
++// Google signup creates the same profile, but has no password-signup checkbox.
++describe("OAuth adult confirmation", () => {
++  beforeEach(clearContextCache);
++  it("requires explicit confirmation before an OAuth account can enable Dating", async () => {
++    const { call, store } = fixture();
++    const actor = SEED_IDS.elena;
++    const profile = (await store.getProfile(actor))!;
++    await store.upsertProfile({
++      ...profile,
++      is18Plus: false,
++      onboardingComplete: false,
++    });
++    const twin = (await store.getTwin(actor))!;
++    const permissions = (await store.getPermissions(actor))!;
++    const input = {
++      username: profile.username,
++      displayName: profile.displayName,
++      bio: profile.bio,
++      city: profile.city ?? "",
++      languages: profile.languages,
++      intentions: profile.intentions,
++      interests: await store.listInterests(actor),
++      personality: twin.personality,
++      topics: twin.topics,
++      lookingFor: twin.lookingFor,
++      communicationStyle: twin.communicationStyle,
++      hobbies: twin.hobbies,
++      interestingConversation: twin.interestingConversation,
++      publicIntroduction: twin.publicIntroduction,
++      permissions,
++      publishTwin: false,
++    };
++    expect(
++      (
++        await call(actor, "dating.update", {
++          preferences: await store.getDatingPreferences(actor),
++        })
++      ).status,
++    ).toBe(400);
++    expect((await store.getProfile(actor))!.is18Plus).toBe(false);
++    expect(
++      (
++        await call(actor, "onboarding.complete", {
++          ...input,
++          adultConfirmation: true,
++        })
++      ).status,
++    ).toBe(200);
++    expect(await store.getProfile(actor)).toMatchObject({
++      is18Plus: true,
++      onboardingComplete: true,
++    });
++    expect((await store.getTwin(actor))!.enabled).toBe(false);
++    expect(
++      (
++        await call(actor, "dating.update", {
++          preferences: await store.getDatingPreferences(actor),
++        })
++      ).status,
++    ).toBe(200);
++  });
++});
++
++describe("mobile adapter failure boundaries", () => {
++  beforeEach(clearContextCache);
++  it("serializes simultaneous retries using the same request key", async () => {
++    const { call, services } = fixture();
++    const start = vi.spyOn(services, "startTwinConversation");
++    const responses = await Promise.all([
++      call(
++        SEED_IDS.elena,
++        "twin.start",
++        { otherId: SEED_IDS.noah },
++        "fixture-parallel",
++      ),
++      call(
++        SEED_IDS.elena,
++        "twin.start",
++        { otherId: SEED_IDS.noah },
++        "fixture-parallel",
++      ),
++    ]);
++    expect(start).toHaveBeenCalledTimes(1);
++    expect(responses.map((response) => response.status).sort()).toEqual([
++      200, 409,
++    ]);
++    expect(
++      (
++        await call(
++          SEED_IDS.elena,
++          "twin.start",
++          { otherId: SEED_IDS.noah },
++          "fixture-parallel",
++        )
++      ).status,
++    ).toBe(200);
++  });
++  it("refuses guarded mutations if the durable ledger is unavailable", async () => {
++    const { services } = fixture();
++    const start = vi.spyOn(services, "startTwinConversation");
++    const handler = mobileHandler({
++      verify: async () => SEED_IDS.elena,
++      services: () => services,
++      ledger: {
++        reserve: async () => {
++          throw new Error("missing table with internal details");
++        },
++        finish: async () => undefined,
++      },
++    });
++    const response = await handler(
++      new Request("https://fixture.test", {
++        method: "POST",
++        headers: {
++          Authorization: "Bearer fixture-token",
++          "Content-Type": "application/json",
++          "Idempotency-Key": "fixture-no-ledger",
++        },
++        body: JSON.stringify({
++          operation: "twin.start",
++          input: { otherId: SEED_IDS.noah },
++        }),
++      }),
++    );
++    expect(response.status).toBe(503);
++    expect(start).not.toHaveBeenCalled();
++    expect(await response.text()).not.toContain("internal details");
++  });
++  it("derives the reporter from verified auth and bounds incoming bodies", async () => {
++    const { call, store, handler } = fixture();
++    expect(
++      (
++        await call(
++          SEED_IDS.elena,
++          "safety.report",
++          {
++            targetUserId: SEED_IDS.noah,
++            targetType: "profile",
++            reason: "scam",
++            details: "Fixture only",
++          },
++          "fixture-report",
++        )
++      ).status,
++    ).toBe(200);
++    expect(await store.listReportsByReporter(SEED_IDS.elena)).toHaveLength(1);
++    expect(await store.listReportsByReporter(SEED_IDS.noah)).toHaveLength(0);
++    const response = await handler(
++      new Request("https://fixture.test", {
++        method: "POST",
++        headers: {
++          Authorization: `Bearer ${SEED_IDS.elena}`,
++          "Content-Type": "application/json",
++        },
++        body: "x".repeat(250_001),
++      }),
++    );
++    expect(response.status).toBe(400);
++  });
++});
+diff --git a/supabase/migrations/20261023052502_mobile_request_idempotency.sql b/supabase/migrations/20261023052502_mobile_request_idempotency.sql
+new file mode 100644
+--- /dev/null
++++ b/supabase/migrations/20261023052502_mobile_request_idempotency.sql
+@@ -0,0 +1,19 @@
++-- DRAFT ONLY: generated locally; not applied to any project.
++-- Reuses the existing project. Private server-side retry tracking, no client grants.
++create table public.mobile_requests (
++  actor_id uuid not null references auth.users(id) on delete cascade,
++  operation text not null,
++  request_key text not null check (char_length(request_key) between 8 and 200),
++  input_hash text not null,
++  state text not null default 'pending' check (state in ('pending', 'complete')),
++  result jsonb,
++  created_at timestamptz not null default now(),
++  primary key (actor_id, operation, request_key),
++  check ((state = 'pending' and result is null) or (state = 'complete' and result is not null))
++);
++alter table public.mobile_requests enable row level security;
++revoke all on public.mobile_requests from public, anon, authenticated;
++grant select, insert, update, delete on public.mobile_requests to service_role;
++-- Never expire pending rows automatically: an interrupted operation may already
++-- have side effects. Reconcile them manually before any retry or removal.
++notify pgrst, 'reload schema';

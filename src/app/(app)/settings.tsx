@@ -1,35 +1,142 @@
-import { Pressable, Text, View } from "react-native";
-
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Alert, ScrollView, Text } from "react-native";
+import { FormField } from "@/components/form-ui";
+import {
+  PrimaryButton,
+  QueryState,
+  Row,
+  Section,
+} from "@/components/mobile-ui";
 import { useTheme } from "@/hooks/use-theme";
+import { deleteAccount, loadMyBundle, unblockUser } from "@/lib/lonagram";
 import { useAuth } from "@/providers/auth-provider";
 
 export default function SettingsScreen() {
   const theme = useTheme();
-  const { profile, session, signOut } = useAuth();
-  const email = session?.user.email;
+  const { session, signOut } = useAuth();
+  const userId = session!.user.id;
+  const router = useRouter();
+  const cache = useQueryClient();
+  const [username, setUsername] = useState("");
+  const bundle = useQuery({
+    queryKey: ["bundle", userId],
+    queryFn: () => loadMyBundle(userId),
+  });
+  const logout = useMutation({ mutationFn: signOut });
+  const unblock = useMutation({
+    mutationFn: unblockUser,
+    onSuccess: () => {
+      void cache.invalidateQueries();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: () => deleteAccount(username),
+    onSuccess: async () => {
+      await signOut();
+    },
+  });
+  function confirmDelete() {
+    Alert.alert(
+      "Delete your Lonagram account?",
+      "This permanently deletes your shared account on web, iOS, and Android. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete account",
+          style: "destructive",
+          onPress: () => remove.mutate(),
+        },
+      ],
+    );
+  }
   return (
-    <View style={{ backgroundColor: theme.background, flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
-      <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: "600" }}>Account</Text>
-      <Text style={{ color: theme.text, fontSize: 16, marginTop: 8 }}>{profile?.displayName ?? "Lonagram"}</Text>
-      {email ? <Text style={{ color: theme.textSecondary, fontSize: 14, marginTop: 4 }}>{email}</Text> : null}
-      <Text style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 21, marginTop: 20 }}>
-        Twin turns, permissions, and AI keys stay on the Lonagram server. This phone stores only your sign-in session in the device secure store.
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{
+        backgroundColor: theme.background,
+        flexGrow: 1,
+        padding: 24,
+        gap: 20,
+      }}
+    >
+      <Text style={{ color: theme.text, fontSize: 20, fontWeight: "700" }}>
+        Account
       </Text>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => void signOut()}
-        style={{
-          alignItems: "center",
-          borderColor: theme.border,
-          borderRadius: 12,
-          borderWidth: 1,
-          marginTop: 28,
-          minHeight: 48,
-          justifyContent: "center",
-        }}
-      >
-        <Text style={{ color: theme.text, fontSize: 16, fontWeight: "600" }}>Sign out</Text>
-      </Pressable>
-    </View>
+      <Text style={{ color: theme.textSecondary }}>{session?.user.email}</Text>
+      <Section>
+        <Row
+          icon="shield-checkmark-outline"
+          title="Privacy and Twin permissions"
+          onPress={() => router.push("/privacy" as never)}
+        />
+        <Row
+          icon="heart-outline"
+          title="Dating preferences"
+          onPress={() => router.push("/dating-preferences" as never)}
+        />
+      </Section>
+      <PrimaryButton
+        label={logout.isPending ? "Signing out…" : "Sign out"}
+        disabled={logout.isPending}
+        onPress={() => logout.mutate()}
+      />
+      {logout.error ? (
+        <Text accessibilityRole="alert" style={{ color: theme.danger }}>
+          {logout.error.message}
+        </Text>
+      ) : null}
+      <QueryState loading={bundle.isLoading} error={bundle.error}>
+        <Text style={{ color: theme.text, fontWeight: "700" }}>
+          Blocked profiles
+        </Text>
+        <Section>
+          {bundle.data?.blocks.map((person) => (
+            <Row
+              key={person.id}
+              icon="ban-outline"
+              title={person.displayName}
+              detail="Tap to unblock"
+              onPress={
+                unblock.isPending ? undefined : () => unblock.mutate(person.id)
+              }
+            />
+          ))}
+        </Section>
+        {unblock.error ? (
+          <Text accessibilityRole="alert" style={{ color: theme.danger }}>
+            {unblock.error.message}
+          </Text>
+        ) : null}
+        <Text style={{ color: theme.danger, fontWeight: "700" }}>
+          Delete shared account
+        </Text>
+        <Text style={{ color: theme.textSecondary }}>
+          Type {bundle.data?.profile.username} to confirm deletion across all
+          your devices.
+        </Text>
+        <FormField
+          label="Confirm username"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+        />
+        <PrimaryButton
+          label={remove.isPending ? "Deleting…" : "Delete account"}
+          disabled={
+            remove.isPending ||
+            !bundle.data ||
+            username.trim().toLowerCase() !== bundle.data.profile.username
+          }
+          onPress={confirmDelete}
+        />
+        {remove.error ? (
+          <Text accessibilityRole="alert" style={{ color: theme.danger }}>
+            {remove.error.message}
+          </Text>
+        ) : null}
+      </QueryState>
+    </ScrollView>
   );
 }

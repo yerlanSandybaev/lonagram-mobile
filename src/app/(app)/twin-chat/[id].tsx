@@ -1,16 +1,165 @@
-import { Ionicons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { Animated, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from "react-native";
-import { PrimaryButton } from "@/components/mobile-ui";
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Text,
+  View,
+} from "react-native";
+import { useHeaderHeight } from "expo-router/react-navigation";
+import { useIsFocused } from "expo-router";
+import { ChatComposer } from "@/components/chat-composer";
+import { PrimaryButton, QueryState } from "@/components/mobile-ui";
 import { useTheme } from "@/hooks/use-theme";
-import { loadMyBundle } from "@/lib/lonagram";
+import {
+  loadTwinThread,
+  markTwinRead,
+  requestConnection,
+  runTwinTurn,
+} from "@/lib/lonagram";
 import { useAuth } from "@/providers/auth-provider";
 
 export default function TwinChatScreen() {
-  const theme = useTheme(); const { name } = useLocalSearchParams<{ id: string; name?: string }>(); const { session } = useAuth(); const bundle = useQuery({ queryKey: ["bundle", session!.user.id], queryFn: () => loadMyBundle(session!.user.id) }); const canSignal = Boolean(bundle.data?.twin.enabled && bundle.data.permissions.allowTwinChat);
-  return <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ backgroundColor: theme.background, flex: 1 }}><Stack.Screen options={{ headerShown: true, title: `${name ?? "Profile"} · AI Twin` }} /><View style={[styles.disclosure, { borderBottomColor: theme.border }]}><View style={[styles.dot, { backgroundColor: "#3B82F6" }]} /><Text style={{ color: theme.textSecondary, flex: 1, fontSize: 12, lineHeight: 17 }}>AI representation — not the real person. It only shares information they approved.</Text></View><View style={styles.center}><Ionicons color={theme.primary} name="sparkles-outline" size={38} /><Text style={{ color: theme.text, fontSize: 20, fontWeight: "800" }}>Twin chat needs the mobile API</Text><Text style={{ color: theme.textSecondary, lineHeight: 21, textAlign: "center" }}>The existing AI turn endpoint uses a web session cookie. Mobile Bearer-token support must be added server-side before real Twin messages or Twin Signals can be sent safely.</Text><TypingDots /><View style={{ width: "100%" }}><PrimaryButton label={canSignal ? "Twin Signal · API required" : "Publish your Twin to send a Signal"} disabled onPress={() => undefined} /></View></View><View style={[styles.composer, { borderTopColor: theme.border }]}><TextInput accessibilityLabel="Ask the AI Twin" editable={false} placeholder="Twin chat unavailable" placeholderTextColor={theme.textSecondary} style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }]} /></View></KeyboardAvoidingView>;
+  const theme = useTheme();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { session } = useAuth();
+  const userId = session!.user.id;
+  const queryClient = useQueryClient();
+  const list = useRef<FlatList>(null);
+  const atBottom = useRef(true);
+  const focused = useIsFocused();
+  const height = useHeaderHeight();
+  const thread = useQuery({
+    queryKey: ["twin-thread", userId, id],
+    queryFn: () => loadTwinThread(id),
+    enabled: focused,
+    refetchInterval: focused ? 4_000 : false,
+  });
+  const lastId = thread.data?.messages.at(-1)?.id;
+  useEffect(() => {
+    if (focused && lastId)
+      void markTwinRead(id, lastId)
+        .then(() => queryClient.invalidateQueries({ queryKey: ["counts"] }))
+        .catch(() => undefined);
+  }, [focused, id, lastId, queryClient]);
+  const connect = useMutation({
+    mutationFn: () =>
+      requestConnection(
+        userId,
+        thread.data!.other.id,
+        "twin_chat",
+        id,
+        `twin-connect:${id}`,
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["requests", userId] }),
+  });
+  const title = `${thread.data?.other.displayName ?? "Conversation"} · Twin`;
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={height}
+      style={{ backgroundColor: theme.background, flex: 1 }}
+    >
+      <Stack.Screen options={{ headerShown: true, title }} />
+      <Text style={{ color: theme.textSecondary, padding: 12 }}>
+        Twin replies represent approved information. They are not personal
+        replies or consent to connect.
+      </Text>
+      <View style={{ flex: 1 }}>
+        {thread.data && thread.error ? (
+          <Text
+            accessibilityRole="alert"
+            style={{ color: theme.danger, paddingHorizontal: 12 }}
+          >
+            The conversation could not refresh. Your draft is kept.
+          </Text>
+        ) : null}
+        <QueryState
+          loading={thread.isLoading}
+          error={!thread.data ? thread.error : null}
+        >
+          <FlatList
+            ref={list}
+            data={thread.data?.messages}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
+            onScroll={({ nativeEvent: e }) => {
+              atBottom.current =
+                e.contentOffset.y + e.layoutMeasurement.height >=
+                e.contentSize.height - 80;
+            }}
+            scrollEventThrottle={100}
+            onContentSizeChange={() => {
+              if (atBottom.current)
+                list.current?.scrollToEnd({ animated: false });
+            }}
+            contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
+            renderItem={({ item }) => (
+              <View
+                style={{
+                  backgroundColor: theme.backgroundElement,
+                  padding: 14,
+                  borderRadius: 16,
+                }}
+              >
+                <Text
+                  style={{
+                    color: theme.primary,
+                    fontSize: 12,
+                    fontWeight: "700",
+                    marginBottom: 6,
+                  }}
+                >
+                  {item.fromPerson
+                    ? item.speakerUserId === userId
+                      ? "You · Personal"
+                      : `${thread.data?.other.displayName} · Personal`
+                    : "Twin"}
+                </Text>
+                <Text style={{ color: theme.text, lineHeight: 21 }}>
+                  {item.body}
+                </Text>
+              </View>
+            )}
+          />
+        </QueryState>
+      </View>
+      {thread.data ? (
+        <View style={{ paddingHorizontal: 12, gap: 6 }}>
+          <PrimaryButton
+            label={
+              connect.isPending
+                ? "Sending invitation…"
+                : connect.isSuccess
+                  ? "Invitation sent"
+                  : "Invite to connect"
+            }
+            disabled={connect.isPending || connect.isSuccess}
+            onPress={() => connect.mutate()}
+          />
+          {connect.error ? (
+            <Text accessibilityRole="alert" style={{ color: theme.danger }}>
+              {connect.error.message}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+      <ChatComposer
+        key={id}
+        draftId={`twin:${id}`}
+        placeholder="Ask the Twin"
+        disabled={!thread.data || thread.data.conversation.status !== "active"}
+        submit={(cue, key) => runTwinTurn(id, cue, key)}
+        onSent={() => {
+          atBottom.current = true;
+          void queryClient.invalidateQueries({
+            queryKey: ["twin-thread", userId, id],
+          });
+        }}
+      />
+    </KeyboardAvoidingView>
+  );
 }
-function TypingDots() { const opacity = useRef(new Animated.Value(.25)).current; useEffect(() => { const animation = Animated.loop(Animated.sequence([Animated.timing(opacity, { duration: 650, toValue: 1, useNativeDriver: true }), Animated.timing(opacity, { duration: 650, toValue: .25, useNativeDriver: true })])); animation.start(); return () => animation.stop(); }, [opacity]); return <Animated.View accessibilityLabel="AI Twin is typing" style={[styles.typing, { opacity }]}><View style={styles.blueDot} /><View style={styles.blueDot} /><View style={styles.blueDot} /></Animated.View>; }
-const styles = StyleSheet.create({ disclosure: { alignItems: "center", borderBottomWidth: .5, flexDirection: "row", gap: 8, padding: 12 }, dot: { borderRadius: 5, height: 9, width: 9 }, center: { alignItems: "center", flex: 1, gap: 12, justifyContent: "center", padding: 32 }, typing: { flexDirection: "row", gap: 5, marginTop: 8 }, blueDot: { backgroundColor: "#3B82F6", borderRadius: 4, height: 8, width: 8 }, composer: { borderTopWidth: .5, padding: 12 }, input: { borderRadius: 22, minHeight: 46, paddingHorizontal: 16 } });

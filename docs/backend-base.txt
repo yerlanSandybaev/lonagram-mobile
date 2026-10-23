@@ -1,0 +1,5 @@
+Repository: https://github.com/yerlanSandybaev/lonagram
+Base commit: 59897a129c065e274a1d2c75db2ee683e982beb0
+Local checkout: ../lonagram-web-reference
+Patch: backend-integration.patch
+Status: source branch codex/mobile-backend-integration; migration applied and deployment promoted with user authorization; see RELEASE.md
