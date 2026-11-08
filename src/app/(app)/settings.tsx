@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView } from "react-native";
 import { Text } from "@/components/app-text";
+import { AccountSecurity } from "@/components/account-security";
 import { FormField } from "@/components/form-ui";
 import {
   PrimaryButton,
@@ -62,10 +63,10 @@ export default function SettingsScreen() {
         gap: 20,
       }}
     >
-      <Text style={{ color: theme.text, fontSize: 20, fontWeight: "700" }}>
+      <Text heading accessibilityRole="header" style={{ color: theme.text, fontSize: 26, fontWeight: "800" }}>
         Account
       </Text>
-      <Text style={{ color: theme.textSecondary }}>{session?.user.email}</Text>
+      <AccountSecurity email={bundle.data?.email} loginEmail={session?.user.email} />
       <Section>
         <Row
           icon="shield-checkmark-outline"

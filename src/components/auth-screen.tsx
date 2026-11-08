@@ -2,10 +2,12 @@ import { useState, type ReactNode } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "@/components/app-text";
 import { Link } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandMark } from "@/components/brand-mark";
 import { useTheme } from "@/hooks/use-theme";
+import { forgotPasswordUrl } from "@/lib/account";
 import { useAuth } from "@/providers/auth-provider";
 
 type Mode = "sign-in" | "sign-up";
@@ -85,6 +87,9 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               <Text style={[styles.hint, { color: theme.textSecondary }]}>
                 3–20 characters. Letters, numbers, and underscores only.
               </Text>
+              <Text style={[styles.hint, { color: theme.textSecondary }]}>
+                After you join, add a recovery email in Settings so you can reset your password.
+              </Text>
             </>
           ) : null}
           <Field label="Email" theme={theme}>
@@ -111,6 +116,15 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               value={password}
             />
           </Field>
+          {mode === "sign-in" && forgotPasswordUrl(process.env.EXPO_PUBLIC_LONAGRAM_API_URL) ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => void WebBrowser.openBrowserAsync(forgotPasswordUrl(process.env.EXPO_PUBLIC_LONAGRAM_API_URL)!)}
+              style={{ alignSelf: "flex-start", justifyContent: "center", minHeight: 44 }}
+            >
+              <Text style={{ color: theme.primary, fontSize: 14, fontWeight: "800" }}>Forgot password?</Text>
+            </Pressable>
+          ) : null}
           {mode === "sign-up" ? (
             <Pressable
               accessibilityRole="checkbox"

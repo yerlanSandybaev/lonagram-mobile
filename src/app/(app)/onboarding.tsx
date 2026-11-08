@@ -89,7 +89,8 @@ export default function OnboardingScreen() {
         <QueryState loading={bundle.isLoading} error={bundle.error}>
           <Text style={{ color: theme.textSecondary, lineHeight: 21 }}>
             Finish your shared profile. Your Twin stays private unless you
-            choose to publish it.
+            choose to publish it. Add a recovery email in Settings so you can reset
+            your password.
           </Text>
           <FormGroup>
             {(

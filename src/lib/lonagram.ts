@@ -81,6 +81,8 @@ export type MessageThread = {
   unread: number;
 };
 export type Bundle = {
+  // Confirmed recovery email, "" when none. Absent until the server reports it.
+  email?: string;
   profile: Profile;
   interests: string[];
   twin: TwinProfile;
