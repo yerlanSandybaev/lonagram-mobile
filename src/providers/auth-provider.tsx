@@ -8,8 +8,12 @@ import {
   type ReactNode,
 } from "react";
 import type { Session } from "@supabase/supabase-js";
+import * as AppleAuthentication from "expo-apple-authentication";
+import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
+import { appleIdentityToken, createAppleNonce, isAppleCancel } from "@/lib/apple-auth";
 import { MOBILE_AUTH_REDIRECT, oauthCode } from "@/lib/oauth-callback";
+import { uuidv4 } from "@/lib/uuid";
 
 import {
   validateSignIn,
@@ -31,6 +35,7 @@ type AuthContextValue = {
   signUp: (input: SignUpInput) => Promise<AuthMessage>;
   signOut: () => Promise<void>;
   signInGoogle: () => Promise<AuthMessage>;
+  signInApple: () => Promise<AuthMessage>;
   completeOAuth: (url: string) => Promise<AuthMessage>;
 };
 
@@ -172,6 +177,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             : empty;
         } catch {
           return { error: "Could not open Google sign-in. Please try again." };
+        } finally {
+          googlePending.current = false;
+        }
+      },
+      async signInApple() {
+        if (googlePending.current) return empty;
+        const client = getSupabase();
+        if (!client) return { error: "Sign-in is not configured." };
+        googlePending.current = true;
+        try {
+          const nonce = await createAppleNonce(
+            () => uuidv4() + uuidv4(),
+            (value) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, value),
+          );
+          const credential = await AppleAuthentication.signInAsync({
+            requestedScopes: [
+              AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+              AppleAuthentication.AppleAuthenticationScope.EMAIL,
+            ],
+            nonce: nonce.hashed,
+          });
+          const token = appleIdentityToken(credential);
+          if (!token) return { error: "Apple sign-in could not finish. Please try again." };
+          const { error } = await client.auth.signInWithIdToken({ provider: "apple", token, nonce: nonce.raw });
+          return error ? { error: "Apple sign-in could not finish. Please try again." } : empty;
+        } catch (error) {
+          return isAppleCancel(error) ? empty : { error: "Could not sign in with Apple. Please try again." };
         } finally {
           googlePending.current = false;
         }

@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "@/components/app-text";
 import { Link } from "expo-router";
+import * as AppleAuthentication from "expo-apple-authentication";
 import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -14,7 +15,11 @@ type Mode = "sign-in" | "sign-up";
 
 export function AuthScreen({ mode }: { mode: Mode }) {
   const theme = useTheme();
-  const { configured, configError, signIn, signUp, signInGoogle } = useAuth();
+  const { configured, configError, signIn, signUp, signInGoogle, signInApple } = useAuth();
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    void AppleAuthentication.isAvailableAsync().then(setAppleAvailable, () => setAppleAvailable(false));
+  }, []);
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -163,6 +168,31 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               </Text>
             )}
           </Pressable>
+          {mode === "sign-in" && appleAvailable ? (
+            <View style={{ marginTop: 20, opacity: pending || !configured ? 0.5 : 1 }} pointerEvents={pending || !configured ? "none" : "auto"}>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonStyle={
+                  theme.background === "#FAF8FF"
+                    ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                    : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                }
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                cornerRadius={26}
+                onPress={async () => {
+                  if (pending) return;
+                  setPending(true);
+                  setMessage(null);
+                  try {
+                    const result = await signInApple();
+                    if (result.error) setMessage({ text: result.error, notice: false });
+                  } finally {
+                    setPending(false);
+                  }
+                }}
+                style={{ height: 52, width: "100%" }}
+              />
+            </View>
+          ) : null}
           {mode === "sign-in" ? <Pressable accessibilityRole="button" disabled={pending || !configured} onPress={async () => {
             if (pending) return;
             setPending(true); setMessage(null);

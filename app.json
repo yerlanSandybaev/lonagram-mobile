@@ -13,7 +13,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "icon": "./assets/brand/icon-ios-1024.png"
+      "icon": "./assets/brand/icon-ios-1024.png",
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "com.lonagram.app",
@@ -50,7 +51,8 @@
           "photosPermission": "Lonagram uses your selected photo as your profile picture.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,
