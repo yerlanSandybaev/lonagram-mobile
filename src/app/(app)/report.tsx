@@ -1,7 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, Text } from "react-native";
+import { Pressable, ScrollView } from "react-native";
+import { Text } from "@/components/app-text";
 import { FormField } from "@/components/form-ui";
 import { PrimaryButton } from "@/components/mobile-ui";
 import { useTheme } from "@/hooks/use-theme";

@@ -1,15 +1,6 @@
 import { useState, type ReactNode } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text, TextInput } from "@/components/app-text";
 import { Link } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -46,7 +37,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <BrandMark size={40} />
-          <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{mode === "sign-up" ? "Create your account" : "Sign in"}</Text>
+          <Text heading accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{mode === "sign-up" ? "Create your account" : "Sign in"}</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
             {mode === "sign-up"
               ? "Lonagram is for adults 18 and older. Your twin comes next, after a profile that is actually yours."
@@ -148,12 +139,12 @@ export function AuthScreen({ mode }: { mode: Mode }) {
             accessibilityRole="button"
             disabled={pending}
             onPress={() => void submit()}
-            style={[styles.button, { backgroundColor: theme.text, opacity: pending ? 0.7 : 1 }]}
+            style={[styles.button, { backgroundColor: theme.primary, opacity: pending ? 0.7 : 1 }]}
           >
             {pending ? (
-              <ActivityIndicator color={theme.background} />
+              <ActivityIndicator color={theme.onPrimary} />
             ) : (
-              <Text style={[styles.buttonLabel, { color: theme.background }]}>
+              <Text style={[styles.buttonLabel, { color: theme.onPrimary }]}>
                 {mode === "sign-up" ? "Create account" : "Sign in"}
               </Text>
             )}
@@ -163,7 +154,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
             setPending(true); setMessage(null);
             try { const result = await signInGoogle(); if (result.error) setMessage({ text: result.error, notice: false }); }
             finally { setPending(false); }
-          }} style={[styles.button, { borderColor: theme.border, borderWidth: 1 }]}><Text style={{ color: theme.text }}>Continue with Google</Text></Pressable> : null}
+          }} style={[styles.button, { borderColor: theme.border, borderWidth: 1 }]}><Text style={{ color: theme.text, fontWeight: "700" }}>Continue with Google</Text></Pressable> : null}
           <Text style={[styles.footer, { color: theme.textSecondary }]}>
             {mode === "sign-up" ? "Already have an account? " : "New here? "}
             <Link href={mode === "sign-up" ? "/sign-in" : "/sign-up"} style={{ color: theme.text, textDecorationLine: "underline" }}>
@@ -213,18 +204,18 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     width: "100%",
   },
-  title: { fontSize: 32, fontWeight: "600", letterSpacing: -0.6, marginTop: 28 },
+  title: { fontSize: 32, fontWeight: "800", letterSpacing: -0.6, marginTop: 28 },
   subtitle: { fontSize: 15, lineHeight: 22, marginTop: 8 },
   field: { marginTop: 16 },
   label: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
-  input: { borderRadius: 12, borderWidth: 1, fontSize: 16, minHeight: 48, paddingHorizontal: 14 },
+  input: { borderRadius: 16, borderWidth: 1, fontSize: 16, minHeight: 48, paddingHorizontal: 14 },
   hint: { fontSize: 12, lineHeight: 18, marginTop: 8 },
   checkRow: { alignItems: "flex-start", flexDirection: "row", gap: 12, marginTop: 18 },
   checkbox: { borderRadius: 4, borderWidth: 1.5, height: 18, marginTop: 2, width: 18 },
   checkLabel: { flex: 1, fontSize: 14, lineHeight: 20 },
   alert: { fontSize: 14, lineHeight: 20, marginTop: 16 },
-  notice: { borderRadius: 12, fontSize: 14, lineHeight: 20, marginTop: 16, padding: 12 },
-  button: { alignItems: "center", borderRadius: 12, justifyContent: "center", marginTop: 20, minHeight: 48 },
-  buttonLabel: { fontSize: 16, fontWeight: "600" },
+  notice: { borderRadius: 16, fontSize: 14, lineHeight: 20, marginTop: 16, padding: 12 },
+  button: { alignItems: "center", borderRadius: 999, justifyContent: "center", marginTop: 20, minHeight: 52 },
+  buttonLabel: { fontSize: 16, fontWeight: "800" },
   footer: { fontSize: 14, marginTop: 18 },
 });

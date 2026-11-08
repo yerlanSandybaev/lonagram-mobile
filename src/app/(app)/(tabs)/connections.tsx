@@ -1,4 +1,4 @@
-import { Text } from "react-native";
+import { Text } from "@/components/app-text";
 
 import { EmptyState, GlassCard, PremiumScreen, StatusPill } from "@/components/premium-ui";
 import { useTheme } from "@/hooks/use-theme";

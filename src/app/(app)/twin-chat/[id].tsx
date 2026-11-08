@@ -1,13 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef } from "react";
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Text,
-  View,
-} from "react-native";
+import { FlatList, KeyboardAvoidingView, Platform, View } from "react-native";
+import { Text } from "@/components/app-text";
 import { useHeaderHeight } from "expo-router/react-navigation";
 import { useIsFocused } from "expo-router";
 import { ChatComposer } from "@/components/chat-composer";

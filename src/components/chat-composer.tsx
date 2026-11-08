@@ -1,10 +1,5 @@
-import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
+import { Text, TextInput } from "@/components/app-text";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/use-theme";
@@ -60,8 +55,8 @@ export function ChatComposer({
             flex: 1,
             minHeight: 44,
             maxHeight: 120,
-            borderRadius: 20,
-            paddingHorizontal: 14,
+            borderRadius: 24,
+            paddingHorizontal: 16,
             paddingVertical: 10,
           }}
         />
@@ -82,10 +77,10 @@ export function ChatComposer({
           }}
         >
           {draft.pending ? (
-            <ActivityIndicator color={theme.background} />
+            <ActivityIndicator color={theme.onPrimary} />
           ) : (
             <Ionicons
-              color={theme.background}
+              color={theme.onPrimary}
               name={draft.error ? "refresh" : "arrow-up"}
               size={22}
             />

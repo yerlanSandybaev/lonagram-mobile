@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
+import { StyleSheet, type TextInputProps, View } from "react-native";
+import { Text, TextInput } from "@/components/app-text";
 import { Radius } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 export function FormField({ label, hint, ...props }: TextInputProps & { label: string; hint?: string }) { const theme = useTheme(); return <View style={{ gap: 7 }}><Text style={[styles.label, { color: theme.text }]}>{label}</Text><TextInput placeholderTextColor={theme.textSecondary} style={[styles.input, { backgroundColor: theme.backgroundElement, borderColor: theme.border, color: theme.text }, props.multiline ? styles.multiline : null]} {...props} accessibilityLabel={props.accessibilityLabel ?? label} />{hint ? <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{hint}</Text> : null}</View>; }

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, Text } from "react-native";
+import { Alert, ScrollView } from "react-native";
+import { Text } from "@/components/app-text";
 import { FormField, FormGroup } from "@/components/form-ui";
 import { PrimaryButton, QueryState } from "@/components/mobile-ui";
 import { StatusPill } from "@/components/premium-ui";

@@ -3,14 +3,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "@/components/app-text";
 import { FormField, FormGroup } from "@/components/form-ui";
 import { Avatar, PrimaryButton, QueryState } from "@/components/mobile-ui";
 import { useTheme } from "@/hooks/use-theme";

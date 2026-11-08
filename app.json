@@ -35,9 +35,12 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#000000",
+          "backgroundColor": "#FAF8FF",
           "image": "./assets/brand/lonagram-mark.png",
-          "imageWidth": 120
+          "imageWidth": 120,
+          "dark": {
+            "backgroundColor": "#17122B"
+          }
         }
       ],
       "expo-secure-store",

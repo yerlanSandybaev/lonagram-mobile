@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, Switch, Text, View } from "react-native";
+import { Alert, ScrollView, Switch, View } from "react-native";
+import { Text } from "@/components/app-text";
 import { PrimaryButton, QueryState, Section } from "@/components/mobile-ui";
 import { useTheme } from "@/hooks/use-theme";
 import {

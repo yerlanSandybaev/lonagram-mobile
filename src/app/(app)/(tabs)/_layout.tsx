@@ -17,7 +17,7 @@ export default function TabLayout() {
         header: () => <AppHeader />,
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textSecondary,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarLabelStyle: { fontSize: 11, fontFamily: "Manrope_700Bold" },
         tabBarStyle: {
           backgroundColor: theme.background,
           borderTopColor: theme.border,

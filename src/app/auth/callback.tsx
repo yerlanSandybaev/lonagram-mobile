@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
+import { Text } from "@/components/app-text";
 import { PrimaryButton } from "@/components/mobile-ui";
 import { useAuth } from "@/providers/auth-provider";
 import { MOBILE_AUTH_REDIRECT } from "@/lib/oauth-callback";

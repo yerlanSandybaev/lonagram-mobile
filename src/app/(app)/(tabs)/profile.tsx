@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/components/app-text";
 import { Avatar, QueryState, Row, Section } from "@/components/mobile-ui";
 import { PremiumScreen, StatusPill } from "@/components/premium-ui";
 import { useTheme } from "@/hooks/use-theme";

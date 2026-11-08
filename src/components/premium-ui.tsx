@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps, ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "@/components/app-text";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Radius } from "@/constants/theme";
@@ -16,7 +17,7 @@ export function PremiumScreen({ eyebrow, title, subtitle, children }: {
     <SafeAreaView edges={["left", "right"]} style={[styles.safe, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {eyebrow ? <Text style={[styles.eyebrow, { color: theme.primary }]}>{eyebrow}</Text> : null}
-        <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{title}</Text>
+        <Text heading accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{title}</Text>
         {subtitle ? <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{subtitle}</Text> : null}
         <View style={styles.body}>{children}</View>
       </ScrollView>
@@ -28,7 +29,7 @@ export function GlassCard({ children, icon, title }: { children: ReactNode; icon
   const theme = useTheme();
   return (
     <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
-      {title ? <View style={styles.cardHeading}>{icon ? <Ionicons color={theme.primary} name={icon} size={20} /> : null}<Text style={[styles.cardTitle, { color: theme.text }]}>{title}</Text></View> : null}
+      {title ? <View style={styles.cardHeading}>{icon ? <Ionicons color={theme.primary} name={icon} size={20} /> : null}<Text heading style={[styles.cardTitle, { color: theme.text }]}>{title}</Text></View> : null}
       {children}
     </View>
   );
@@ -41,9 +42,9 @@ export function EmptyState({ icon, title, body, action, disabled = false, onPres
   return (
     <View style={styles.empty}>
       <View style={[styles.orb, { backgroundColor: theme.backgroundSelected }]}><Ionicons color={theme.primary} name={icon} size={30} /></View>
-      <Text style={[styles.emptyTitle, { color: theme.text }]}>{title}</Text>
+      <Text heading style={[styles.emptyTitle, { color: theme.text }]}>{title}</Text>
       <Text style={[styles.emptyBody, { color: theme.textSecondary }]}>{body}</Text>
-      {action ? <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.action, { backgroundColor: disabled ? theme.backgroundSelected : theme.primary }]}><Text style={[styles.actionText, { color: disabled ? theme.textSecondary : theme.background }]}>{action}</Text></Pressable> : null}
+      {action ? <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[styles.action, { backgroundColor: disabled ? theme.backgroundSelected : theme.primary }]}><Text style={[styles.actionText, { color: disabled ? theme.textSecondary : theme.onPrimary }]}>{action}</Text></Pressable> : null}
     </View>
   );
 }
@@ -55,11 +56,11 @@ export function StatusPill({ label, tone = "primary" }: { label: string; tone?: 
 
 const styles = StyleSheet.create({
   safe: { flex: 1 }, content: { alignSelf: "center", maxWidth: 680, paddingBottom: 40, paddingHorizontal: 20, paddingTop: 24, width: "100%" },
-  eyebrow: { fontSize: 12, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase" }, title: { fontSize: 34, fontWeight: "700", letterSpacing: -1, marginTop: 6 },
+  eyebrow: { fontSize: 12, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase" }, title: { fontSize: 34, fontWeight: "800", letterSpacing: -1, marginTop: 6 },
   subtitle: { fontSize: 15, lineHeight: 23, marginTop: 8, maxWidth: 560 }, body: { gap: 14, marginTop: 24 },
-  card: { borderRadius: Radius.lg, borderWidth: 1, padding: 18 }, cardHeading: { alignItems: "center", flexDirection: "row", gap: 9, marginBottom: 12 }, cardTitle: { fontSize: 17, fontWeight: "700" },
+  card: { borderRadius: Radius.xl, borderWidth: 1, padding: 18 }, cardHeading: { alignItems: "center", flexDirection: "row", gap: 9, marginBottom: 12 }, cardTitle: { fontSize: 18, fontWeight: "800" },
   empty: { alignItems: "center", paddingHorizontal: 10, paddingVertical: 24 }, orb: { alignItems: "center", borderRadius: 28, height: 56, justifyContent: "center", width: 56 },
-  emptyTitle: { fontSize: 20, fontWeight: "700", marginTop: 16, textAlign: "center" }, emptyBody: { fontSize: 14, lineHeight: 21, marginTop: 8, maxWidth: 420, textAlign: "center" },
-  action: { borderRadius: Radius.pill, marginTop: 18, paddingHorizontal: 20, paddingVertical: 12 }, actionText: { fontSize: 14, fontWeight: "800" },
+  emptyTitle: { fontSize: 22, fontWeight: "800", marginTop: 16, textAlign: "center" }, emptyBody: { fontSize: 14, lineHeight: 21, marginTop: 8, maxWidth: 420, textAlign: "center" },
+  action: { borderRadius: Radius.pill, marginTop: 18, minHeight: 44, justifyContent: "center", paddingHorizontal: 22, paddingVertical: 12 }, actionText: { fontSize: 14, fontWeight: "800" },
   pill: { alignItems: "center", alignSelf: "flex-start", borderRadius: Radius.pill, flexDirection: "row", gap: 7, paddingHorizontal: 11, paddingVertical: 7 }, dot: { borderRadius: 4, height: 7, width: 7 }, pillText: { fontSize: 12, fontWeight: "800" },
 });
