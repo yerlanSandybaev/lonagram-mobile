@@ -4,21 +4,28 @@
     "slug": "lonagram",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/brand/icon-512.png",
+    "icon": "./assets/brand/icon-ios-1024.png",
     "scheme": "lonagram",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.lonagram.app",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "icon": "./assets/brand/icon-ios-1024.png"
     },
     "android": {
       "package": "com.lonagram.app",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#000000",
-        "foregroundImage": "./assets/brand/icon-512.png"
+        "foregroundImage": "./assets/brand/icon-android-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/brand/lonagram-mark.png"
@@ -45,6 +52,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

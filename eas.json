@@ -6,13 +6,37 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_LONAGRAM_API_URL": "https://lonagram.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tuuancbntarycnodwmpb.supabase.co"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_LONAGRAM_API_URL": "https://lonagram.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tuuancbntarycnodwmpb.supabase.co"
+      },
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_LONAGRAM_API_URL": "https://lonagram.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://tuuancbntarycnodwmpb.supabase.co"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {
