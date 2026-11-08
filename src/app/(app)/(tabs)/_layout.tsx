@@ -47,7 +47,13 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="twins"
-        options={{ href: null }}
+        options={{
+          title: "Twin",
+          tabBarHideOnKeyboard: true,
+          tabBarIcon: ({ color, focused, size }) => (
+            <Ionicons color={color} name={focused ? "sparkles" : "sparkles-outline"} size={size} />
+          ),
+        }}
       />
       <Tabs.Screen
         name="messages"

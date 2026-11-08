@@ -74,6 +74,11 @@ export default function SettingsScreen() {
           onPress={() => router.push("/privacy" as never)}
         />
         <Row
+          icon="albums-outline"
+          title="Your Twin's memories"
+          onPress={() => router.push("/twin-memories" as never)}
+        />
+        <Row
           icon="heart-outline"
           title="Dating preferences"
           onPress={() => router.push("/dating-preferences" as never)}

@@ -17,11 +17,12 @@ export default function AppLayout() {
         headerShadowVisible: false,
         headerStyle: { backgroundColor: theme.background },
         headerTintColor: theme.text,
-        headerTitleStyle: { fontWeight: "600" },
+        headerTitleStyle: { fontFamily: "BricolageGrotesque_700Bold" },
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ title: "Settings" }} />
+      <Stack.Screen name="twin-memories" options={{ title: "Your Twin's memories" }} />
     </Stack>
   );
 }

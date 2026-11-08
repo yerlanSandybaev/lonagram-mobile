@@ -1,10 +1,13 @@
 import { mobileApi } from "@/lib/api";
 import { createDiscoverApi } from "@/lib/discover";
+import { createPrivateTwinApi } from "@/lib/private-twin";
 import { createIntentRunner } from "@/lib/request-intents";
 const intent = createIntentRunner();
 export type { DiscoverCard } from "@/lib/discover";
 // Discover cards for every intention (discover.list), with a dating-only fallback.
 export const discoverApi = createDiscoverApi(mobileApi, intent);
+// The user's own private Twin: chat, plus the memories it keeps.
+export const privateTwinApi = createPrivateTwinApi(mobileApi, intent);
 
 export type Profile = {
   id: string;
