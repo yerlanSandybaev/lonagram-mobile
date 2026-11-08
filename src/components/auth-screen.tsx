@@ -92,14 +92,14 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               </Text>
             </>
           ) : null}
-          <Field label="Email" theme={theme}>
+          <Field label={mode === "sign-in" ? "Email or username" : "Email"} theme={theme}>
             <TextInput
-              accessibilityLabel="Email"
+              accessibilityLabel={mode === "sign-in" ? "Email or username" : "Email"}
               autoCapitalize="none"
-              autoComplete="email"
+              autoComplete={mode === "sign-in" ? "username" : "email"}
               autoCorrect={false}
-              inputMode="email"
-              keyboardType="email-address"
+              inputMode={mode === "sign-in" ? "text" : "email"}
+              keyboardType={mode === "sign-in" ? "default" : "email-address"}
               onChangeText={setEmail}
               style={[styles.input, inputStyle(theme)]}
               value={email}

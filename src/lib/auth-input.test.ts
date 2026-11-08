@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { validateSignIn, validateSignUp } from "./auth-input";
+import { signInEmail, validateSignIn, validateSignUp } from "./auth-input";
 
 const validSignUp = {
   email: "maya@example.com",
@@ -39,7 +39,24 @@ describe("validateSignIn", () => {
   it("uses the same incorrect-credentials message as the website", () => {
     expect(validateSignIn({ email: "not-an-email", password: "short" })).toEqual({
       ok: false,
-      error: "Email or password is incorrect.",
+      error: "Email, username or password is incorrect.",
     });
+  });
+
+  it("accepts a username and maps it to the web's internal account address", () => {
+    expect(validateSignIn({ email: " Maya_Chen ", password: "lonagram-demo" })).toEqual({
+      ok: true,
+      value: { email: "maya_chen@accounts.lonagram.invalid", password: "lonagram-demo" },
+    });
+  });
+
+  it("still accepts a normal email unchanged", () => {
+    expect(signInEmail(" maya@example.com ")).toBe("maya@example.com");
+  });
+
+  it("rejects malformed usernames and emails", () => {
+    expect(signInEmail("ab")).toBeNull();
+    expect(signInEmail("has space")).toBeNull();
+    expect(signInEmail("a@b")).toBeNull();
   });
 });

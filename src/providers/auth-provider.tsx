@@ -192,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             parsed.value,
           );
           if (error || !data.user)
-            return { error: "Email or password is incorrect." };
+            return { error: "Email, username or password is incorrect." };
           return empty;
         } catch {
           return {

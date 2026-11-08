@@ -52,10 +52,21 @@ export function validateSignUp(input: SignUpInput): FieldResult<SignUpValues> {
   };
 }
 
+// Accounts created with only a username use this internal address on the web (it never receives mail).
+export const INTERNAL_ACCOUNT_DOMAIN = "accounts.lonagram.invalid";
+
+// The sign-in field takes an email or a username, like the website.
+export function signInEmail(identifier: string): string | null {
+  const value = identifier.trim();
+  if (value.includes("@")) return EMAIL.test(value) ? value : null;
+  const username = value.toLowerCase();
+  return USERNAME.test(username) ? `${username}@${INTERNAL_ACCOUNT_DOMAIN}` : null;
+}
+
 export function validateSignIn(input: { email: string; password: string }): FieldResult<{ email: string; password: string }> {
-  const email = input.email.trim();
-  if (!EMAIL.test(email) || input.password.length < 8) {
-    return { ok: false, error: "Email or password is incorrect." };
+  const email = signInEmail(input.email);
+  if (!email || input.password.length < 8) {
+    return { ok: false, error: "Email, username or password is incorrect." };
   }
   return { ok: true, value: { email, password: input.password } };
 }
