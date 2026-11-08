@@ -29,7 +29,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ title: "Dating", tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "heart" : "heart-outline"} size={size} /> }}
+        options={{ title: "Discover", tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "compass" : "compass-outline"} size={size} /> }}
       />
       <Tabs.Screen
         name="connections"

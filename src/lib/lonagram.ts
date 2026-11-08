@@ -1,6 +1,10 @@
 import { mobileApi } from "@/lib/api";
+import { createDiscoverApi } from "@/lib/discover";
 import { createIntentRunner } from "@/lib/request-intents";
 const intent = createIntentRunner();
+export type { DiscoverCard } from "@/lib/discover";
+// Discover cards for every intention (discover.list), with a dating-only fallback.
+export const discoverApi = createDiscoverApi(mobileApi, intent);
 
 export type Profile = {
   id: string;
