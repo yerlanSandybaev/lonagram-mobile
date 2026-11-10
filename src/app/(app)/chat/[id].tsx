@@ -87,17 +87,15 @@ export default function HumanChatScreen() {
                 <View
                   style={{
                     alignSelf: mine ? "flex-end" : "flex-start",
-                    backgroundColor: mine
-                      ? theme.primary
-                      : theme.backgroundElement,
-                    borderRadius: 18,
+                    backgroundColor: mine ? theme.text : theme.tint,
+                    borderRadius: 24,
                     maxWidth: "82%",
                     padding: 12,
                   }}
                 >
                   <Text
                     style={{
-                      color: mine ? theme.onPrimary : theme.text,
+                      color: mine ? theme.background : theme.text,
                       lineHeight: 20,
                     }}
                   >

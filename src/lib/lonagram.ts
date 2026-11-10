@@ -125,6 +125,10 @@ export type TwinThreadSummary = {
   other: Profile;
   preview: string;
   unread: boolean;
+  status: string;
+  direction: "incoming" | "outgoing";
+  updatedAt: string;
+  muted?: boolean;
 };
 
 // userId arguments remain for screen query keys. Identity is NEVER sent to the

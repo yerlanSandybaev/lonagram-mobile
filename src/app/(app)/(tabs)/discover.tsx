@@ -97,7 +97,7 @@ export default function DiscoverScreen() {
     mutationFn: async (otherId: string) => ({ otherId, removed: await discoverApi.ignore(otherId) }),
     onSuccess: ({ otherId, removed }) => {
       // Without the server operation the person is only hidden until the app restarts.
-      setNote(removed ? "" : "Hidden for now. Ignoring for good needs the latest Lonagram server.");
+      setNote(removed ? "" : "Skipped for now. Skipping for good needs the latest Lonagram server.");
       setHidden((all) => new Set(all).add(otherId));
     },
   });
@@ -159,28 +159,31 @@ export default function DiscoverScreen() {
         <QueryState loading={list.isLoading} error={list.error}>
           {current ? (
             <MatchCard card={current} photoMax={Math.min(height * 0.5, 520)} onProfile={() => openProfile(current)}>
-              <View style={{ flexDirection: "row", gap: 20, justifyContent: "center", marginTop: 4 }}>
-                <SmallLink
-                  label="Report"
-                  color={theme.textSecondary}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/report" as never,
-                      params: { id: current.id, name: current.displayName },
-                    } as never)
-                  }
-                />
-                <SmallLink
-                  label="Block"
-                  color={theme.danger}
-                  onPress={() =>
-                    Alert.alert(`Block ${current.displayName}?`, "You can unblock them in Settings.", [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Block", style: "destructive", onPress: () => block.mutate(current.id) },
-                    ])
-                  }
-                />
-              </View>
+              <Pressable
+                accessibilityLabel={`More options for ${current.displayName}`}
+                accessibilityRole="button"
+                onPress={() =>
+                  Alert.alert(current.displayName, undefined, [
+                    {
+                      text: "Report",
+                      onPress: () => router.push({ pathname: "/report" as never, params: { id: current.id, name: current.displayName } } as never),
+                    },
+                    {
+                      text: "Block",
+                      style: "destructive",
+                      onPress: () =>
+                        Alert.alert(`Block ${current.displayName}?`, "You can unblock them in Settings.", [
+                          { text: "Cancel", style: "cancel" },
+                          { text: "Block", style: "destructive", onPress: () => block.mutate(current.id) },
+                        ]),
+                    },
+                    { text: "Cancel", style: "cancel" },
+                  ])
+                }
+                style={{ alignItems: "center", alignSelf: "flex-end", height: 44, justifyContent: "center", width: 44 }}
+              >
+                <Ionicons color={theme.textSecondary} name="ellipsis-horizontal" size={20} />
+              </Pressable>
             </MatchCard>
           ) : (
             <EmptyState
@@ -398,12 +401,12 @@ function ActionBar({
       <View style={{ alignSelf: "center", gap: 8, maxWidth: 680, width: "100%" }}>
         <PrimaryButton
           icon="chatbubble-ellipses"
-          label={busy.meet ? "Opening twin chat…" : "Chat with their AI twin"}
+          label={busy.meet ? "Opening Twin chat…" : "Talk to their Twin"}
           disabled={!card.twinAvailable || busy.meet}
           onPress={onChat}
         />
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <SecondaryButton icon="close" label="Ignore" disabled={busy.ignore} muted onPress={onIgnore} />
+          <SecondaryButton icon="close" label="Skip" disabled={busy.ignore} muted onPress={onIgnore} />
           <SecondaryButton
             icon={middleIcon[middle.kind]}
             label={middle.label}
@@ -463,18 +466,6 @@ function SecondaryButton({
         {label}
       </Text>
       {trailing ? iconNode : null}
-    </Pressable>
-  );
-}
-
-function SmallLink({ label, color, onPress }: { label: string; color: string; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={{ justifyContent: "center", minHeight: 44, paddingHorizontal: 8 }}
-    >
-      <Text style={{ color, fontSize: 13, fontWeight: "700" }}>{label}</Text>
     </Pressable>
   );
 }

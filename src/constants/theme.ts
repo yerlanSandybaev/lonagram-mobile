@@ -15,13 +15,13 @@ export const Colors = {
     text: "#1B1533", background: "#FAF8FF", backgroundElement: "#FFFFFF",
     backgroundSelected: "#EDE7FF", textSecondary: "#5B5575", border: "#E4DEF5",
     danger: "#B3335A", primary: "#5B2EE0", accent: "#E8456F",
-    onPrimary: "#FFFFFF", tint: "#EDE7FF", tintText: "#3D1FA8", scrim: "rgba(27,21,51,0.8)",
+    success: "#1E9E6A", onPrimary: "#FFFFFF", tint: "#EDE7FF", tintText: "#3D1FA8", scrim: "rgba(27,21,51,0.8)",
   },
   dark: {
     text: palette.cream, background: palette.ink, backgroundElement: palette.inkRaised,
     backgroundSelected: palette.inkSoft, textSecondary: palette.muted, border: palette.line,
     danger: palette.danger, primary: palette.violet, accent: palette.coral,
-    onPrimary: "#17122B", tint: palette.inkSoft, tintText: "#DCD2FF", scrim: "rgba(27,21,51,0.8)",
+    success: "#3DBE8A", onPrimary: "#17122B", tint: palette.inkSoft, tintText: "#DCD2FF", scrim: "rgba(27,21,51,0.8)",
   },
 } as const;
 
@@ -40,8 +40,8 @@ export const Fonts = Platform.select({
   web: { sans: "system-ui", serif: "Georgia", rounded: "system-ui", mono: "monospace" },
 })!;
 export const Spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 } as const;
-// Cards 24–32, inputs 16, buttons fully round.
-export const Radius = { sm: 10, md: 16, lg: 24, xl: 32, pill: 999 } as const;
+// About 16 for cards and inputs, 24 for chat bubbles, buttons fully round.
+export const Radius = { sm: 10, md: 16, lg: 16, xl: 20, bubble: 24, pill: 999 } as const;
 export const Motion = { quick: 160, standard: 260, gentle: 420 } as const;
 export const TouchTarget = { min: 44, primary: 52 } as const;
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;

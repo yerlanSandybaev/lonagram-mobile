@@ -1,16 +1,21 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "@/components/app-header";
 import { useTheme } from "@/hooks/use-theme";
-import { useQuery } from "@tanstack/react-query";
-import { loadCounts } from "@/lib/lonagram";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { loadTwinThreads } from "@/lib/lonagram";
+import { useAuth } from "@/providers/auth-provider";
 
+// Phone tabs as on the website: Home, Discover, Twin Inbox, Profile.
+// Messages and Notifications open from the top bar.
 export default function TabLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const counts = useQuery({ queryKey: ["counts"], queryFn: loadCounts, refetchInterval: 15_000 });
+  const { session } = useAuth();
+  const twinThreads = useQuery({ queryKey: ["twin-threads", session!.user.id], queryFn: loadTwinThreads, refetchInterval: 30_000 });
+  const unreadTwin = twinThreads.data?.filter((item) => item.unread).length;
   return (
     <Tabs
       screenOptions={{
@@ -29,55 +34,37 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ title: "Discover", tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "compass" : "compass-outline"} size={size} /> }}
-      />
-      <Tabs.Screen
-        name="connections"
-        options={{ href: null }}
+        options={{
+          title: "Home",
+          tabBarHideOnKeyboard: true,
+          tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "home" : "home-outline"} size={size} />,
+        }}
       />
       <Tabs.Screen
         name="discover"
         options={{
-          href: null,
-          title: "Dating",
-          tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons color={color} name={focused ? "compass" : "compass-outline"} size={size} />
-          ),
+          title: "Discover",
+          tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "compass" : "compass-outline"} size={size} />,
         }}
       />
       <Tabs.Screen
         name="twins"
         options={{
-          title: "Twin",
-          tabBarHideOnKeyboard: true,
-          tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons color={color} name={focused ? "sparkles" : "sparkles-outline"} size={size} />
-          ),
+          title: "Twin Inbox",
+          tabBarBadge: unreadTwin || undefined,
+          tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "sparkles" : "sparkles-outline"} size={size} />,
         }}
-      />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          title: "Chats",
-          tabBarBadge: counts.data?.messages || undefined,
-          tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons color={color} name={focused ? "chatbubble" : "chatbubble-outline"} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{ title: "Notifications", tabBarBadge: counts.data?.notifications || undefined, tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "notifications" : "notifications-outline"} size={size} /> }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color, focused, size }) => (
-            <Ionicons color={color} name={focused ? "person" : "person-outline"} size={size} />
-          ),
+          tabBarIcon: ({ color, focused, size }) => <Ionicons color={color} name={focused ? "person" : "person-outline"} size={size} />,
         }}
       />
+      <Tabs.Screen name="messages" options={{ href: null, title: "Messages" }} />
+      <Tabs.Screen name="notifications" options={{ href: null, title: "Notifications" }} />
+      <Tabs.Screen name="connections" options={{ href: null }} />
     </Tabs>
   );
 }
