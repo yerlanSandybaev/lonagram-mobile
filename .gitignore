@@ -47,3 +47,6 @@ example
 docs/*-approval.png
 docs/*-authorization.png
 docs/supabase-migration-applied.png
+
+# Local Claude Code preview config
+.claude/
