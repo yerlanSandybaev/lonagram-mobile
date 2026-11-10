@@ -182,6 +182,20 @@ export function memoryUpdateInput(
   };
 }
 
+// A visitor asked the owner's Twin something it could not answer. The owner answers once, in their own words.
+export type VisitorQuestion = {
+  id: string;
+  text: string;
+  askedAt: string | null;
+  visitorId: string;
+  visitorName: string;
+  conversationId: string;
+};
+
+export function questionPrompt(question: Pick<VisitorQuestion, "visitorName" | "text">): string {
+  return `${question.visitorName} asked: “${question.text}” What should I say?`;
+}
+
 type Call = <T>(operation: string, input?: unknown, key?: string) => Promise<T>;
 type RunIntent = <T>(scope: string, submit: (key: string) => Promise<T>) => Promise<T>;
 
@@ -197,6 +211,17 @@ export function createPrivateTwinApi(call: Call, runIntent: RunIntent) {
         "twin.private.talk",
         { ...rest, ...(history?.length ? { history: recent(history) } : {}), ...(targetMemoryId ? { targetMemoryId } : {}) },
         input.requestId,
+      );
+    },
+    listQuestions() {
+      return call<VisitorQuestion[]>("twin.question.list");
+    },
+    // answer null skips the question. "auto" lets the server decide how widely the answer applies, as on the web.
+    answerQuestion(question: Pick<VisitorQuestion, "id">, answer: string | null) {
+      const text = answer?.trim();
+      const input = text ? { messageId: question.id, scope: "auto" as const, answer: text } : { messageId: question.id, scope: "skip" as const };
+      return runIntent(`question:${question.id}:${text ?? "skip"}`, (key) =>
+        call<{ done: string; memory?: TwinMemory }>("twin.question.answer", input, key),
       );
     },
     listMemories() {
