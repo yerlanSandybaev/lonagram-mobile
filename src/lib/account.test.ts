@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { changePassword, forgotPasswordUrl, setRecoveryEmail, signOutOtherDevices, validateNewPassword, type AccountAuthClient } from "./account";
+import { changePassword, forgotPasswordUrl, publicTwinUrl, setRecoveryEmail, signOutOtherDevices, validateNewPassword, type AccountAuthClient } from "./account";
 
 function fake(overrides: Record<string, unknown> = {}) {
   const auth = {
@@ -66,5 +66,8 @@ describe("other devices and forgot password", () => {
   it("opens the web forgot-password page", () => {
     expect(forgotPasswordUrl("https://lonagram.com/")).toBe("https://lonagram.com/forgot-password");
     expect(forgotPasswordUrl(undefined)).toBeNull();
+  });
+  it("builds the public Twin page link", () => {
+    expect(publicTwinUrl("erlan_s", "https://lonagram.com/")).toBe("https://lonagram.com/t/erlan_s");
   });
 });

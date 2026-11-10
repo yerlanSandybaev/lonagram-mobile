@@ -39,8 +39,8 @@ export function middleAction(card: Pick<DiscoverCard, "datingEligible" | "dating
 
 export function privacyLine(card: Pick<DiscoverCard, "twinAvailable" | "displayName">): string {
   return card.twinAvailable
-    ? `You talk to their twin first. ${card.displayName} can read the chat. A real chat opens only if you both say yes.`
-    : "Their twin is off right now. A real chat still opens only if you both say yes.";
+    ? `You talk to their Twin first. ${card.displayName} can read the chat. A real chat opens only if you both say yes.`
+    : "Their Twin is off right now. A real chat still opens only if you both say yes.";
 }
 
 export function chipsFor(card: Pick<DiscoverCard, "intentions" | "sharedInterests">, intentionLabel: (value: string) => string = titleCase) {

@@ -47,8 +47,8 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           <Text heading accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{mode === "sign-up" ? "Create your account" : "Sign in"}</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
             {mode === "sign-up"
-              ? "Lonagram is for adults 18 and older. Your twin comes next, after a profile that is actually yours."
-              : "Pick up your profile, your twin, and the conversations you already chose."}
+              ? "Lonagram is for adults 18 and older. Your Twin comes next, after a profile that is actually yours."
+              : "Pick up your profile, your Twin, and the conversations you already chose."}
           </Text>
           {configError ? (
             <Text accessibilityRole="alert" style={[styles.alert, { color: theme.danger }]}>

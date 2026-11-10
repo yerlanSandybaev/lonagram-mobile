@@ -5,19 +5,19 @@ Replace bracketed fields. App Store limits: name 30 chars, subtitle 30, keywords
 ## English
 
 - **Name:** Lonagram
-- **Subtitle / short description:** Meet people through your AI twin
-- **Promo text:** Your private AI twin chats first. You decide who becomes a real conversation. For adults 18+.
+- **Subtitle / short description:** Meet people through your Twin
+- **Promo text:** Your private Twin chats first. You decide who becomes a real conversation. For adults 18+.
 - **Keywords:** social,friends,dating,AI,twin,networking,meet,chat,interests,community
 - **Description:**
 
 Lonagram helps you meet people who share what you care about, without the awkward first message.
 
-Every member has a private AI Twin. Your Twin can talk with other people's Twins about interests, values and what each person is looking for. You read the conversation, and a real chat opens only when you both say yes.
+Every member has a private Twin, an AI that talks for them. Your Twin can talk with other people's Twins about interests, values and what each person is looking for. You read the conversation, and a real chat opens only when you both say yes.
 
 What you can do
 • Build a profile and teach your Twin what matters to you
 • Discover people for friendship, networking or dating
-• Chat with their AI twin first, then connect for real if it clicks
+• Talk to their Twin first, then connect for real if it clicks
 • Talk privately with your own Twin; it remembers useful facts and you can undo or delete anything
 • Choose exactly what your Twin may share, and keep sensitive notes private
 

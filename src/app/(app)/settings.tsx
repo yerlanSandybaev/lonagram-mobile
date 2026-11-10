@@ -5,6 +5,7 @@ import { Alert, ScrollView } from "react-native";
 import { Text } from "@/components/app-text";
 import { AccountSecurity } from "@/components/account-security";
 import { FormField } from "@/components/form-ui";
+import { SettingsPreferences } from "@/components/settings-preferences";
 import {
   PrimaryButton,
   QueryState,
@@ -66,11 +67,13 @@ export default function SettingsScreen() {
       <Text heading accessibilityRole="header" style={{ color: theme.text, fontSize: 26, fontWeight: "800" }}>
         Account
       </Text>
+      <SettingsPreferences userId={userId} bundle={bundle.data} />
       <AccountSecurity email={bundle.data?.email} loginEmail={session?.user.email} />
       <Section>
         <Row
           icon="shield-checkmark-outline"
-          title="Privacy and Twin permissions"
+          title="Privacy and sharing"
+          detail="Choose exactly what your Twin may share"
           onPress={() => router.push("/privacy" as never)}
         />
         <Row

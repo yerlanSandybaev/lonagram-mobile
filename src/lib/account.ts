@@ -22,6 +22,11 @@ export function apiOrigin(raw: string | undefined): string | null {
   return value ? value : null;
 }
 
+// Public Twin page with a link preview on the website.
+export function publicTwinUrl(username: string, origin: string | undefined = process.env.EXPO_PUBLIC_LONAGRAM_API_URL): string {
+  return `${apiOrigin(origin) ?? "https://lonagram.com"}/t/${encodeURIComponent(username)}`;
+}
+
 export function forgotPasswordUrl(origin: string | undefined): string | null {
   const base = apiOrigin(origin);
   return base ? `${base}/forgot-password` : null;

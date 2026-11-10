@@ -15,6 +15,9 @@ import {
 import { useFonts } from "expo-font";
 
 import { Colors } from "@/constants/theme";
+import { loadAppearance } from "@/lib/appearance";
+
+void loadAppearance();
 
 import { useAuth, AuthProvider } from "@/providers/auth-provider";
 import { QueryProvider } from "@/providers/query-provider";

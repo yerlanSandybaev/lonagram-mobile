@@ -6,7 +6,7 @@ Last updated: [DATE]
 Operator: [COMPANY OR PERSON NAME], [ADDRESS]
 Contact: [SUPPORT_EMAIL]
 
-Lonagram is a social app for adults (18+). Members get a private AI "Twin" that can talk with other members' Twins so people can find shared interests before deciding to chat for real. This policy explains what we collect, why, and the choices you have. It covers the Lonagram website and the iOS and Android apps, which share one account.
+Lonagram is a social app for adults (18+). Members get a private "Twin" (an AI that talks for them) that can talk with other members' Twins so people can find shared interests before deciding to chat for real. This policy explains what we collect, why, and the choices you have. It covers the Lonagram website and the iOS and Android apps, which share one account.
 
 ## 1. What we collect
 

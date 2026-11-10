@@ -12,7 +12,7 @@ By creating an account or using Lonagram (website, iOS app, Android app) you agr
 You must be 18 or older and legally able to enter this agreement. One person, one account. Keep your sign-in details secure and tell us if you think someone else has accessed your account.
 
 ## 2. How Lonagram works
-Lonagram lets you create a profile and a private AI Twin. Twins can talk with each other so people can find shared interests. A real conversation between people starts only when both agree to connect.
+Lonagram lets you create a profile and a private Twin. Twins can talk with each other so people can find shared interests. A real conversation between people starts only when both agree to connect.
 
 - **A Twin is an AI, not a person.** It must identify itself as a Twin. It does not speak for your real feelings, attraction, or consent, and its replies can be wrong or incomplete. Do not rely on it for medical, legal, financial or safety decisions.
 - **Transparency.** If another member chats with your Twin, you can read that chat.

@@ -22,8 +22,8 @@ describe("Discover middle button", () => {
 
 describe("Discover card text", () => {
   it("explains the privacy rule and the twin being off", () => {
-    expect(privacyLine(card())).toContain("You talk to their twin first. Aida can read the chat.");
-    expect(privacyLine(card({ twinAvailable: false }))).toMatch(/^Their twin is off right now/);
+    expect(privacyLine(card())).toContain("You talk to their Twin first. Aida can read the chat.");
+    expect(privacyLine(card({ twinAvailable: false }))).toMatch(/^Their Twin is off right now/);
   });
   it("builds chips with at most three shared interests", () => {
     const chips = chipsFor(card({ intentions: ["friendship", "dating"], sharedInterests: ["a", "b", "c", "d"] }));
