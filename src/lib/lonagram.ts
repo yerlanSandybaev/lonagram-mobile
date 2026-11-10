@@ -240,6 +240,19 @@ export async function loadRequests(_userId: string) {
   }>("home.get");
   return [...home.incoming, ...home.outgoing].map((item) => item.request);
 }
+export function loadHome() {
+  return mobileApi<import("@/lib/twin-chat").HomeForChat>("home.get");
+}
+export async function respondToRequestById(
+  _userId: string,
+  requestId: string,
+  decision: "accepted" | "rejected",
+) {
+  const result = await intent(`connection:${_userId}:${requestId}:${decision}`, (key) =>
+    mobileApi<{ conversationId: string | null }>("connection.respond", { requestId, decision }, key),
+  );
+  return result.conversationId;
+}
 export async function respondToRequest(
   _userId: string,
   request: ConnectionRequest,
