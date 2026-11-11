@@ -10,6 +10,7 @@ import {
   failSend,
   initialChat,
   isMissingOperation,
+  twinLineFrom,
   memoryUpdateInput,
   needsShareConfirmation,
   reconcileMemories,
@@ -151,5 +152,24 @@ describe("uuid", () => {
     const id = uuidv4({ getRandomValues: (array) => array.fill(255) });
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(uuidv4({})).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});
+
+describe("twinLineFrom", () => {
+  it("keeps the reason only when present", () => {
+    expect(twinLineFrom({ id: "checkin:1", role: "twin", text: " What do you do on weekends? ", reason: " So I can answer more like you. " })).toEqual({
+      id: "checkin:1",
+      role: "twin",
+      text: "What do you do on weekends?",
+      reason: "So I can answer more like you.",
+    });
+    expect(twinLineFrom({ id: "checkin:2", role: "twin", text: "Hi", reason: "  " })).toEqual({ id: "checkin:2", role: "twin", text: "Hi" });
+    expect(twinLineFrom({ id: "checkin:3", role: "twin", text: "Hi" })).not.toHaveProperty("reason");
+  });
+  it("rejects lines that are not usable Twin lines", () => {
+    expect(twinLineFrom(null)).toBeNull();
+    expect(twinLineFrom({ id: "x", role: "you", text: "Hi" })).toBeNull();
+    expect(twinLineFrom({ id: "", role: "twin", text: "Hi" })).toBeNull();
+    expect(twinLineFrom({ id: "x", role: "twin", text: " " })).toBeNull();
   });
 });

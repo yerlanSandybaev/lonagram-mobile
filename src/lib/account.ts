@@ -27,6 +27,12 @@ export function publicTwinUrl(username: string, origin: string | undefined = pro
   return `${apiOrigin(origin) ?? "https://lonagram.com"}/t/${encodeURIComponent(username)}`;
 }
 
+// Public legal and support pages on the website, readable without signing in.
+export type LegalPage = "privacy" | "terms" | "support";
+export function legalUrl(page: LegalPage, origin: string | undefined = process.env.EXPO_PUBLIC_LONAGRAM_API_URL): string {
+  return `${apiOrigin(origin) ?? "https://lonagram.com"}/${page}`;
+}
+
 export function forgotPasswordUrl(origin: string | undefined): string | null {
   const base = apiOrigin(origin);
   return base ? `${base}/forgot-password` : null;

@@ -334,6 +334,9 @@ function Message({
   const mine = line.role === "you";
   return (
     <View style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "88%" }}>
+      {!mine && line.reason ? (
+        <Text style={{ color: theme.textSecondary, fontSize: 12.5, lineHeight: 18, marginBottom: 6 }}>{line.reason}</Text>
+      ) : null}
       {showName && !mine ? <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 4 }}>Your Twin</Text> : null}
       <Text
         selectable

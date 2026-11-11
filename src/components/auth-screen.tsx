@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandMark } from "@/components/brand-mark";
 import { useTheme } from "@/hooks/use-theme";
-import { forgotPasswordUrl } from "@/lib/account";
+import { forgotPasswordUrl, legalUrl } from "@/lib/account";
 import { useAuth } from "@/providers/auth-provider";
 
 type Mode = "sign-in" | "sign-up";
@@ -168,6 +168,19 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               </Text>
             )}
           </Pressable>
+          {mode === "sign-up" ? (
+            <Text style={[styles.legal, { color: theme.textSecondary }]}>
+              By creating an account you agree to the{" "}
+              <Text accessibilityRole="link" onPress={() => void WebBrowser.openBrowserAsync(legalUrl("terms"))} style={{ color: theme.text, textDecorationLine: "underline" }}>
+                Terms
+              </Text>{" "}
+              and{" "}
+              <Text accessibilityRole="link" onPress={() => void WebBrowser.openBrowserAsync(legalUrl("privacy"))} style={{ color: theme.text, textDecorationLine: "underline" }}>
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          ) : null}
           {mode === "sign-in" && appleAvailable ? (
             <View style={{ marginTop: 20, opacity: pending || !configured ? 0.5 : 1 }} pointerEvents={pending || !configured ? "none" : "auto"}>
               <AppleAuthentication.AppleAuthenticationButton
@@ -262,4 +275,5 @@ const styles = StyleSheet.create({
   button: { alignItems: "center", borderRadius: 999, justifyContent: "center", marginTop: 20, minHeight: 52 },
   buttonLabel: { fontSize: 16, fontWeight: "800" },
   footer: { fontSize: 14, marginTop: 18 },
+  legal: { fontSize: 13, lineHeight: 19, marginTop: 12, textAlign: "center" },
 });

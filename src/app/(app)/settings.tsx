@@ -12,7 +12,9 @@ import {
   Row,
   Section,
 } from "@/components/mobile-ui";
+import * as WebBrowser from "expo-web-browser";
 import { useTheme } from "@/hooks/use-theme";
+import { legalUrl } from "@/lib/account";
 import { deleteAccount, loadMyBundle, unblockUser } from "@/lib/lonagram";
 import { useAuth } from "@/providers/auth-provider";
 
@@ -120,7 +122,7 @@ export default function SettingsScreen() {
           </Text>
         ) : null}
         <Text style={{ color: theme.danger, fontWeight: "700" }}>
-          Delete shared account
+          Delete account
         </Text>
         <Text style={{ color: theme.textSecondary }}>
           Type {bundle.data?.profile.username} to confirm deletion across all
@@ -147,6 +149,12 @@ export default function SettingsScreen() {
           </Text>
         ) : null}
       </QueryState>
+      <Text style={{ color: theme.text, fontWeight: "700" }}>About</Text>
+      <Section>
+        <Row icon="document-lock-outline" title="Privacy Policy" onPress={() => void WebBrowser.openBrowserAsync(legalUrl("privacy"))} />
+        <Row icon="document-text-outline" title="Terms of Service" onPress={() => void WebBrowser.openBrowserAsync(legalUrl("terms"))} />
+        <Row icon="help-circle-outline" title="Support" onPress={() => void WebBrowser.openBrowserAsync(legalUrl("support"))} />
+      </Section>
     </ScrollView>
   );
 }

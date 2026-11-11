@@ -27,6 +27,8 @@ export type ChatLine = {
   id: string;
   role: DialogueRole;
   text: string;
+  // Why the Twin wrote first. Shown as small muted text above the line, never inside it.
+  reason?: string;
   status?: "sending" | "failed";
   memoryIds?: string[];
   forgotten?: string[];
@@ -47,6 +49,17 @@ export const SENSITIVE_CONFIRM = "This is about a sensitive topic. Share it with
 
 export function initialChat(): ChatState {
   return { lines: [{ id: "welcome", role: "twin", text: WELCOME }], memories: [], history: [], attempt: null, error: "" };
+}
+
+// A Twin line from the server, e.g. a check-in: { id: "checkin:<uuid>", role: "twin", text, reason? }.
+// No mobile operation returns these yet (chat history and prepareTwinCheckIn are still web-only);
+// this is the slot they will use. Returns null for anything that is not a usable Twin line.
+export function twinLineFrom(raw: unknown): ChatLine | null {
+  if (!raw || typeof raw !== "object") return null;
+  const { id, role, text, reason } = raw as Record<string, unknown>;
+  if (typeof id !== "string" || !id || role !== "twin" || typeof text !== "string" || !text.trim()) return null;
+  const why = typeof reason === "string" ? reason.trim() : "";
+  return { id, role: "twin", text: text.trim(), ...(why ? { reason: why } : {}) };
 }
 
 const recent = (history: DialogueLine[]) => history.slice(-HISTORY_LIMIT);

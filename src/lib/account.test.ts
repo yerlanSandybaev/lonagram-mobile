@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { changePassword, forgotPasswordUrl, publicTwinUrl, setRecoveryEmail, signOutOtherDevices, validateNewPassword, type AccountAuthClient } from "./account";
+import { changePassword, forgotPasswordUrl, legalUrl, publicTwinUrl, setRecoveryEmail, signOutOtherDevices, validateNewPassword, type AccountAuthClient } from "./account";
 
 function fake(overrides: Record<string, unknown> = {}) {
   const auth = {
@@ -69,5 +69,13 @@ describe("other devices and forgot password", () => {
   });
   it("builds the public Twin page link", () => {
     expect(publicTwinUrl("erlan_s", "https://lonagram.com/")).toBe("https://lonagram.com/t/erlan_s");
+  });
+});
+
+describe("legalUrl", () => {
+  it("points at the public website pages", () => {
+    expect(legalUrl("privacy", "https://lonagram.com/")).toBe("https://lonagram.com/privacy");
+    expect(legalUrl("terms", undefined)).toBe("https://lonagram.com/terms");
+    expect(legalUrl("support", "")).toBe("https://lonagram.com/support");
   });
 });
