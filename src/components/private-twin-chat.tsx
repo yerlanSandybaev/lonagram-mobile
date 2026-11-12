@@ -15,6 +15,7 @@ import {
   WELCOME,
   applyReply,
   applyUndo,
+  applyVisibility,
   beginSend,
   chipsFor,
   failSend,
@@ -130,6 +131,22 @@ export function PrivateTwinChat({
     }
   }
 
+  async function setVisibility(memory: TwinMemory, intent: "share" | "private") {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    try {
+      const change = await privateTwinApi.updateMemory(memory, intent);
+      commit(applyVisibility(chatRef.current, change.memory ?? { ...memory, visibility: intent === "share" ? "shared" : "private" }));
+      void cache.invalidateQueries({ queryKey: memoriesKey });
+    } catch (error) {
+      commit({ ...chatRef.current, error: error instanceof Error ? error.message : "Could not change that. Please try again." });
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+
   if (unavailable)
     return (
       <View style={{ backgroundColor: theme.background, flex: 1, padding: 24 }}>
@@ -173,6 +190,7 @@ export function PrivateTwinChat({
             memories={chat.memories}
             busy={busy}
             onUndo={undo}
+            onVisibility={setVisibility}
             onRetry={() => void send(line.text)}
           />
         ))}
@@ -321,6 +339,7 @@ function Message({
   memories,
   busy,
   onUndo,
+  onVisibility,
   onRetry,
 }: {
   line: ChatLine;
@@ -328,6 +347,7 @@ function Message({
   memories: TwinMemory[];
   busy: boolean;
   onUndo: (line: ChatLine, memory: TwinMemory) => void;
+  onVisibility: (memory: TwinMemory, intent: "share" | "private") => void;
   onRetry: () => void;
 }) {
   const theme = useTheme();
@@ -359,18 +379,29 @@ function Message({
       ) : (
         chipsFor(line, memories).map((chip) => {
           if (chip.kind === "forgotten") return <Meta key={`f:${chip.text}`} text={`Forgotten: ${chip.text}`} right={mine} />;
-          if (chip.kind === "shared") return <Meta key={chip.memory.id} text="Allowed in visitor replies" right={mine} />;
           if (chip.kind === "suggested") return <Meta key={chip.memory.id} text="Suggested memory · review in Your Twin's memories" right={mine} />;
           return (
             <View key={chip.memory.id} style={{ alignItems: "center", alignSelf: mine ? "flex-end" : "flex-start", flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "flex-end", marginTop: 4 }}>
               <Ionicons color={theme.success} name="checkmark" size={14} />
               <Text style={{ color: theme.textSecondary, flexShrink: 1, fontSize: 12.5 }}>
                 Remembered: <Text style={{ color: theme.text, fontWeight: "700" }}>{chip.memory.response}</Text>
+                {chip.shared ? " · your Twin can share this" : ""}
               </Text>
-              {chip.sensitive ? (
+              {chip.sensitive && !chip.shared ? (
                 <View style={{ backgroundColor: Pastels.yellow.bg, borderRadius: Radius.pill, paddingHorizontal: 8, paddingVertical: 2 }}>
                   <Text style={{ color: Pastels.yellow.text, fontSize: 11, fontWeight: "800" }}>Sensitive · stays private</Text>
                 </View>
+              ) : null}
+              {chip.canShare || chip.shared ? (
+                <Pressable
+                  accessibilityLabel={chip.shared ? `Keep private: ${chip.memory.response}` : `Let Twin share: ${chip.memory.response}`}
+                  accessibilityRole="button"
+                  disabled={busy}
+                  onPress={() => onVisibility(chip.memory, chip.shared ? "private" : "share")}
+                  style={{ justifyContent: "center", minHeight: 44, paddingHorizontal: 6 }}
+                >
+                  <Text style={{ color: theme.primary, fontSize: 13, fontWeight: "800" }}>{chip.shared ? "Keep private" : "Let Twin share"}</Text>
+                </Pressable>
               ) : null}
               <Pressable
                 accessibilityLabel={`Forget: ${chip.memory.response}`}

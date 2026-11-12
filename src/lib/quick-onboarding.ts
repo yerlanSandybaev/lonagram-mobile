@@ -18,8 +18,8 @@ export const MAX_INTERESTS = 12;
 export type PrivacyPreset = "private" | "balanced" | "open";
 export const PRESETS: { id: PrivacyPreset; title: string; text: string; recommended?: boolean }[] = [
   { id: "private", title: "Private", text: "Only you talk to your Twin. Publish it later when you are ready." },
-  { id: "balanced", title: "Balanced", text: "People can talk to your Twin. It shares your interests and style, not your city or private notes.", recommended: true },
-  { id: "open", title: "Open", text: "People can talk to your Twin, and it may also mention your city." },
+  { id: "balanced", title: "Balanced", text: "People can talk to your Twin. It can use your interests and what you tell it, but never your city or sensitive things.", recommended: true },
+  { id: "open", title: "Open", text: "Like Balanced, and your Twin may also mention your city." },
 ];
 
 export const PERMISSION_KEYS = [

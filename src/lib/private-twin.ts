@@ -131,6 +131,12 @@ export function applyMemoryChange(state: ChatState, change: MemoryChange): ChatS
   return { ...state, memories, history: [], targetMemoryId: undefined };
 }
 
+// "Let Twin share" / "Keep private" changed who may hear a fact, not the fact itself,
+// so the dialogue stays as it is.
+export function applyVisibility(state: ChatState, updated: TwinMemory): ChatState {
+  return { ...state, error: "", memories: state.memories.map((item) => (item.id === updated.id ? updated : item)) };
+}
+
 // Sync chip data with the latest memory list (e.g. after returning from the memories screen).
 export function reconcileMemories(state: ChatState, latest: TwinMemory[]): ChatState {
   const byId = new Map(latest.map((item) => [item.id, item]));
@@ -149,20 +155,21 @@ export function reconcileMemories(state: ChatState, latest: TwinMemory[]): ChatS
 }
 
 export type Chip =
-  | { kind: "remembered"; memory: TwinMemory; sensitive: boolean }
-  | { kind: "shared"; memory: TwinMemory }
+  | { kind: "remembered"; memory: TwinMemory; sensitive: boolean; shared: boolean; canShare: boolean }
   | { kind: "suggested"; memory: TwinMemory }
   | { kind: "forgotten"; text: string };
 
-// What to show under a message: Remembered (with Undo), shared / suggested notes, and Forgotten lines.
+// What to show under a message: Remembered (with Let Twin share / Keep private and Undo),
+// suggested notes, and Forgotten lines. Sensitive facts never get a share button here;
+// they can only be shared from Your Twin's memories with a second confirmation.
 export function chipsFor(line: ChatLine, memories: TwinMemory[]): Chip[] {
   const chips: Chip[] = [];
   for (const id of line.memoryIds ?? []) {
     const memory = memories.find((item) => item.id === id);
     if (!memory) continue;
-    if (memory.visibility === "shared") chips.push({ kind: "shared", memory });
-    else if (!memory.approved) chips.push({ kind: "suggested", memory });
-    else chips.push({ kind: "remembered", memory, sensitive: memory.sensitive });
+    const shared = memory.visibility === "shared";
+    if (!memory.approved && !shared) chips.push({ kind: "suggested", memory });
+    else chips.push({ kind: "remembered", memory, sensitive: memory.sensitive, shared, canShare: !shared && !memory.sensitive });
   }
   for (const text of line.forgotten ?? []) chips.push({ kind: "forgotten", text });
   return chips;

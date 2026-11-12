@@ -4,6 +4,7 @@ import {
   applyMemoryChange,
   applyReply,
   applyUndo,
+  applyVisibility,
   beginSend,
   chipsFor,
   createPrivateTwinApi,
@@ -71,12 +72,23 @@ describe("remembered chips and undo", () => {
     const state = applyReply(sent.state, "a", "x", { text: "Noted.", memories: [mem] });
     expect(state.targetMemoryId).toBe("m9");
     const chips = chipsFor(state.lines.find((line) => line.id === "a")!, state.memories);
-    expect(chips).toEqual([{ kind: "remembered", memory: mem, sensitive: true }]);
+    expect(chips).toEqual([{ kind: "remembered", memory: mem, sensitive: true, shared: false, canShare: false }]);
   });
-  it("labels shared and suggested memories without an Undo chip", () => {
-    const line = { id: "a", role: "you" as const, text: "x", memoryIds: ["s", "p"] };
-    const kinds = chipsFor(line, [memory({ id: "s", visibility: "shared" }), memory({ id: "p", approved: false })]).map((chip) => chip.kind);
-    expect(kinds).toEqual(["shared", "suggested"]);
+  it("offers Let Twin share for private facts and Keep private for shared ones", () => {
+    const line = { id: "a", role: "you" as const, text: "x", memoryIds: ["p", "s", "u"] };
+    const chips = chipsFor(line, [memory({ id: "p" }), memory({ id: "s", visibility: "shared" }), memory({ id: "u", approved: false })]);
+    expect(chips.map((chip) => chip.kind)).toEqual(["remembered", "remembered", "suggested"]);
+    expect(chips[0]).toMatchObject({ shared: false, canShare: true });
+    expect(chips[1]).toMatchObject({ shared: true, canShare: false });
+  });
+  it("applyVisibility swaps the memory and keeps the dialogue", () => {
+    const sent = beginSend(initialChat(), "x", "a");
+    const mem = memory({ id: "m1" });
+    const saved = applyReply(sent.state, "a", "x", { text: "ok", memories: [mem] });
+    const next = applyVisibility(saved, { ...mem, visibility: "shared" });
+    expect(next.memories[0].visibility).toBe("shared");
+    expect(next.history).toEqual(saved.history);
+    expect(next.targetMemoryId).toBe("m1");
   });
   it("undo forgets the fact, shows Forgotten, and clears the dialogue", () => {
     const sent = beginSend(initialChat(), "x", "a");

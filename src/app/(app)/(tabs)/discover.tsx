@@ -1,471 +1,189 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
-import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
-import { Alert, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text, TextInput } from "@/components/app-text";
-import { PrimaryButton, QueryState } from "@/components/mobile-ui";
-import { EmptyState } from "@/components/premium-ui";
+import { Monogram } from "@/components/character-ui";
+import { PersonAvatar } from "@/components/person-avatar";
 import { Pastels, Radius } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import {
-  avatarTone,
-  chipsFor,
-  initials,
-  middleAction,
-  privacyLine,
-  type DiscoverCard,
-} from "@/lib/discover";
-import {
-  blockUser,
-  discoverApi,
-  likeDatingProfile,
-  requestConnection,
-  startTwin,
-} from "@/lib/lonagram";
+import { searchCharacters, type Character } from "@/lib/characters";
+import { discoverApi, type DiscoverCard } from "@/lib/lonagram";
 import { useAuth } from "@/providers/auth-provider";
 
-const PAGE = 20;
-type IconName = ComponentProps<typeof Ionicons>["name"];
+const LIMIT = 30;
 
+// A plain list: Character Twins, then People. One search field filters both.
 export default function DiscoverScreen() {
   const theme = useTheme();
   const router = useRouter();
   const cache = useQueryClient();
   const { session } = useAuth();
   const userId = session!.user.id;
-  const { height } = useWindowDimensions();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
-  const [position, setPosition] = useState(0);
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const [overrides, setOverrides] = useState<Record<string, Partial<DiscoverCard>>>({});
-  const [note, setNote] = useState("");
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setQuery(search.trim());
-      setPosition(0);
-    }, 350);
+    const timer = setTimeout(() => setQuery(search.trim()), 350);
     return () => clearTimeout(timer);
   }, [search]);
 
-  const list = useInfiniteQuery({
+  const characters = useMemo(() => searchCharacters(search), [search]);
+  const people = useQuery({
     queryKey: ["discover-cards", userId, query],
-    initialPageParam: 0,
-    queryFn: ({ pageParam }) => discoverApi.list({ query, offset: pageParam, limit: PAGE }),
-    getNextPageParam: (last, pages) => (last.length >= PAGE ? pages.length * PAGE : undefined),
+    queryFn: () => discoverApi.list({ query, limit: LIMIT }),
   });
-  const cards = useMemo(
-    () =>
-      (list.data?.pages.flat() ?? [])
-        .filter((card) => !hidden.has(card.id))
-        .map((card) => ({ ...card, ...overrides[card.id] })),
-    [list.data, hidden, overrides],
-  );
-  const current = cards[position];
-  const patch = (id: string, change: Partial<DiscoverCard>) =>
-    setOverrides((all) => ({ ...all, [id]: { ...all[id], ...change } }));
 
-  const meet = useMutation({
-    mutationFn: (otherId: string) => startTwin(otherId, `start:${userId}:${otherId}`),
-    onSuccess: (thread) =>
-      router.push({ pathname: "/twin-chat/[id]" as never, params: { id: thread.id } } as never),
-  });
-  const like = useMutation({
-    mutationFn: (otherId: string) => likeDatingProfile(otherId, `like:${userId}:${otherId}`),
-    onSuccess: (result, otherId) => {
-      patch(otherId, { datingState: "liked" });
-      void cache.invalidateQueries({ queryKey: ["counts"] });
-      if (result.conversationId)
-        router.push({ pathname: "/chat/[id]" as never, params: { id: result.conversationId } } as never);
-    },
-  });
-  const connect = useMutation({
-    mutationFn: (otherId: string) => requestConnection(userId, otherId),
-    onSuccess: (_result, otherId) => {
-      patch(otherId, { connectionState: "outgoing" });
-      void cache.invalidateQueries({ queryKey: ["requests", userId] });
-    },
-  });
-  const ignore = useMutation({
-    mutationFn: async (otherId: string) => ({ otherId, removed: await discoverApi.ignore(otherId) }),
-    onSuccess: ({ otherId, removed }) => {
-      // Without the server operation the person is only hidden until the app restarts.
-      setNote(removed ? "" : "Skipped for now. Skipping for good needs the latest Lonagram server.");
-      setHidden((all) => new Set(all).add(otherId));
-    },
-  });
-  const block = useMutation({
-    mutationFn: (otherId: string) => blockUser(userId, otherId),
-    onSuccess: (_result, otherId) => setHidden((all) => new Set(all).add(otherId)),
-  });
-  const error = meet.error ?? like.error ?? connect.error ?? ignore.error ?? block.error;
-
-  async function next() {
-    if (position + 1 >= cards.length && list.hasNextPage && !list.isFetchingNextPage) await list.fetchNextPage();
-    setPosition((value) => value + 1);
-  }
-  function runMiddle(card: DiscoverCard) {
-    const action = middleAction(card);
-    if (action.kind === "like") like.mutate(card.id);
-    else if (action.kind === "connect") connect.mutate(card.id);
-    else if (action.kind === "review") router.push("/notifications" as never);
-  }
-  function openProfile(card: DiscoverCard) {
-    const origin = process.env.EXPO_PUBLIC_LONAGRAM_API_URL?.trim();
-    if (origin) void WebBrowser.openBrowserAsync(`${origin.replace(/\/$/, "")}/u/${encodeURIComponent(card.username)}`);
+  function openPerson(card: DiscoverCard) {
+    // The profile screen reads the card from here; there is no single-profile operation yet.
+    cache.setQueryData(["discover-person", userId, card.id], card);
+    router.push({ pathname: "/person/[id]" as never, params: { id: card.id } } as never);
   }
 
   return (
-    <SafeAreaView edges={["left", "right"]} style={{ flex: 1, backgroundColor: theme.background }}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-        <View
-          style={{
-            alignItems: "center",
-            backgroundColor: theme.backgroundElement,
-            borderColor: theme.border,
-            borderRadius: Radius.md,
-            borderWidth: 1,
-            flexDirection: "row",
-            gap: 8,
-            paddingHorizontal: 14,
-          }}
-        >
-          <Ionicons color={theme.textSecondary} name="search" size={18} />
-          <TextInput
-            accessibilityLabel="Search people"
-            autoCapitalize="none"
-            autoCorrect={false}
-            onChangeText={setSearch}
-            placeholder="Search people"
-            placeholderTextColor={theme.textSecondary}
-            returnKeyType="search"
-            style={{ color: theme.text, flex: 1, fontSize: 16, minHeight: 46 }}
-            value={search}
-          />
-        </View>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{ alignSelf: "center", maxWidth: 680, padding: 16, paddingBottom: 24, width: "100%" }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <QueryState loading={list.isLoading} error={list.error}>
-          {current ? (
-            <MatchCard card={current} photoMax={Math.min(height * 0.5, 520)} onProfile={() => openProfile(current)}>
-              <Pressable
-                accessibilityLabel={`More options for ${current.displayName}`}
-                accessibilityRole="button"
-                onPress={() =>
-                  Alert.alert(current.displayName, undefined, [
-                    {
-                      text: "Report",
-                      onPress: () => router.push({ pathname: "/report" as never, params: { id: current.id, name: current.displayName } } as never),
-                    },
-                    {
-                      text: "Block",
-                      style: "destructive",
-                      onPress: () =>
-                        Alert.alert(`Block ${current.displayName}?`, "You can unblock them in Settings.", [
-                          { text: "Cancel", style: "cancel" },
-                          { text: "Block", style: "destructive", onPress: () => block.mutate(current.id) },
-                        ]),
-                    },
-                    { text: "Cancel", style: "cancel" },
-                  ])
-                }
-                style={{ alignItems: "center", alignSelf: "flex-end", height: 44, justifyContent: "center", width: 44 }}
-              >
-                <Ionicons color={theme.textSecondary} name="ellipsis-horizontal" size={20} />
-              </Pressable>
-            </MatchCard>
-          ) : (
-            <EmptyState
-              icon="sparkles-outline"
-              title="You're all caught up"
-              body={
-                query
-                  ? "No one else matches that search. Try a different word."
-                  : "New people appear here as they join. Check back soon."
-              }
-              action={cards.length ? "Start from the top" : "Refresh"}
-              onPress={() => (cards.length ? setPosition(0) : void list.refetch())}
+    <SafeAreaView edges={["left", "right"]} style={{ backgroundColor: theme.background, flex: 1 }}>
+      <ScrollView contentContainerStyle={{ alignSelf: "center", maxWidth: 680, paddingBottom: 32, width: "100%" }} keyboardShouldPersistTaps="handled">
+        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          <View style={{ alignItems: "center", borderColor: theme.border, borderRadius: Radius.md, borderWidth: 1, flexDirection: "row", gap: 8, paddingHorizontal: 14 }}>
+            <Ionicons color={theme.textSecondary} name="search" size={18} />
+            <TextInput
+              accessibilityLabel="Search Character Twins and people"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setSearch}
+              placeholder="Search"
+              placeholderTextColor={theme.textSecondary}
+              returnKeyType="search"
+              style={{ color: theme.text, flex: 1, fontSize: 16, minHeight: 46 }}
+              value={search}
             />
-          )}
-        </QueryState>
-        {note ? (
-          <Text accessibilityRole="alert" style={{ color: theme.textSecondary, marginTop: 12, textAlign: "center" }}>
-            {note}
-          </Text>
-        ) : null}
-        {error ? (
-          <Text accessibilityRole="alert" style={{ color: theme.danger, marginTop: 12 }}>
-            {error.message}
-          </Text>
-        ) : null}
-      </ScrollView>
+          </View>
+        </View>
 
-      {current ? (
-        <ActionBar
-          card={current}
-          busy={{
-            meet: meet.isPending,
-            ignore: ignore.isPending,
-            middle: like.isPending || connect.isPending,
-          }}
-          onChat={() => meet.mutate(current.id)}
-          onIgnore={() => ignore.mutate(current.id)}
-          onMiddle={() => runMiddle(current)}
-          onNext={() => void next()}
-        />
-      ) : null}
+        <SectionHeader title="Character Twins" body="Talk with people from history. AI portrayals, not the real people." />
+        {characters.length ? (
+          characters.map((character, index) => (
+            <CharacterRow
+              key={character.slug}
+              character={character}
+              last={index === characters.length - 1}
+              onPress={() => router.push({ pathname: "/character/[slug]" as never, params: { slug: character.slug } } as never)}
+            />
+          ))
+        ) : (
+          <Muted>No Character Twin matches that search.</Muted>
+        )}
+
+        <SectionHeader title="People" body="Talk to their Twin first. A real chat opens only if you both say yes." />
+        {people.isLoading ? (
+          <View style={{ padding: 24 }}>
+            <ActivityIndicator color={theme.primary} />
+          </View>
+        ) : people.error ? (
+          <View style={{ gap: 4, paddingHorizontal: 16 }}>
+            <Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 14 }}>
+              {people.error.message}
+            </Text>
+            <Pressable accessibilityRole="button" onPress={() => void people.refetch()} style={{ alignSelf: "flex-start", justifyContent: "center", minHeight: 44 }}>
+              <Text style={{ color: theme.primary, fontSize: 14, fontWeight: "800" }}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : people.data?.length ? (
+          people.data.map((card, index) => <PersonRow key={card.id} card={card} last={index === people.data!.length - 1} onPress={() => openPerson(card)} />)
+        ) : (
+          <Muted>{query ? "No one matches that search. Try a different word." : "New people appear here as they join. Check back soon."}</Muted>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-function MatchCard({
-  card,
-  photoMax,
-  onProfile,
-  children,
-}: {
-  card: DiscoverCard;
-  photoMax: number;
-  onProfile: () => void;
-  children?: ReactNode;
-}) {
+function SectionHeader({ title, body }: { title: string; body: string }) {
   const theme = useTheme();
-  const chips = chipsFor(card);
-  const place = card.city ? ` · ${card.city}` : "";
   return (
-    <View
-      style={{
-        backgroundColor: theme.backgroundElement,
-        borderColor: theme.border,
-        borderRadius: Radius.xl,
-        borderWidth: 1,
-        overflow: "hidden",
-      }}
-    >
-      <Pressable
-        accessibilityRole="imagebutton"
-        accessibilityLabel={`View ${card.displayName}'s profile`}
-        onPress={onProfile}
-        style={{ aspectRatio: 4 / 5, maxHeight: photoMax, width: "100%" }}
-      >
-        {card.avatarUrl ? (
-          <Image
-            accessibilityLabel={`Photo of ${card.displayName}`}
-            contentFit="cover"
-            contentPosition={{ top: "25%", left: "50%" }}
-            source={{ uri: card.avatarUrl }}
-            style={{ height: "100%", width: "100%" }}
-          />
-        ) : (
-          <View
-            style={{
-              alignItems: "center",
-              backgroundColor: avatarTone(card.avatarSeed),
-              height: "100%",
-              justifyContent: "center",
-              width: "100%",
-            }}
-          >
-            <Text heading style={{ color: "rgba(0,0,0,0.25)", fontSize: 112, fontWeight: "800" }}>
-              {initials(card.displayName) || "?"}
-            </Text>
-          </View>
-        )}
-        <View
-          style={{
-            alignItems: "center",
-            backgroundColor: theme.background,
-            borderRadius: Radius.pill,
-            flexDirection: "row",
-            gap: 8,
-            left: 12,
-            opacity: 0.94,
-            paddingHorizontal: 14,
-            paddingVertical: 8,
-            position: "absolute",
-            top: 12,
-          }}
-        >
-          <View style={{ backgroundColor: theme.accent, borderRadius: 4, height: 7, width: 7 }} />
-          <Text style={{ color: theme.tintText, fontSize: 12, fontWeight: "800" }}>Someone to get to know</Text>
-        </View>
-        <LinearGradient
-          colors={["rgba(27,21,51,0)", "rgba(27,21,51,0.82)"]}
-          style={{ bottom: 0, left: 0, paddingBottom: 16, paddingHorizontal: 20, paddingTop: 72, position: "absolute", right: 0 }}
-        >
-          <Text heading style={{ color: "#FFFFFF", fontSize: 30, fontWeight: "800", lineHeight: 34 }}>
-            {card.displayName}
-          </Text>
-          <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 14, marginTop: 2 }}>
-            @{card.username}
-            {place}
-          </Text>
-        </LinearGradient>
-      </Pressable>
+    <View style={{ gap: 4, paddingHorizontal: 16, paddingBottom: 4, paddingTop: 24 }}>
+      <Text heading accessibilityRole="header" style={{ color: theme.text, fontSize: 20, fontWeight: "800" }}>
+        {title}
+      </Text>
+      <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 19 }}>{body}</Text>
+    </View>
+  );
+}
 
-      <View style={{ gap: 10, padding: 18 }}>
-        {chips.length ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {chips.map((chip) => (
-              <View
-                key={chip.label}
-                style={{
-                  backgroundColor: chip.shared ? Pastels.yellow.bg : theme.tint,
-                  borderRadius: Radius.pill,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                }}
-              >
-                <Text style={{ color: chip.shared ? Pastels.yellow.text : theme.tintText, fontSize: 13, fontWeight: "700" }}>
-                  {chip.label}
-                </Text>
+function Muted({ children }: { children: ReactNode }) {
+  const theme = useTheme();
+  return <Text style={{ color: theme.textSecondary, fontSize: 14, paddingHorizontal: 16, paddingVertical: 12 }}>{children}</Text>;
+}
+
+function ListRow({ last, onPress, label, children }: { last: boolean; onPress: () => void; label: string; children: ReactNode }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        alignItems: "flex-start",
+        backgroundColor: pressed ? theme.backgroundSelected : "transparent",
+        borderBottomColor: theme.border,
+        borderBottomWidth: last ? 0 : 1,
+        flexDirection: "row",
+        gap: 12,
+        marginHorizontal: 16,
+        paddingVertical: 14,
+      })}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
+function CharacterRow({ character, last, onPress }: { character: Character; last: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <ListRow last={last} onPress={onPress} label={`${character.name}, ${character.role}`}>
+      <Monogram character={character} size={48} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text numberOfLines={1} style={{ color: theme.text, fontSize: 15, fontWeight: "800" }}>
+          {character.name} <Text style={{ color: theme.textSecondary, fontWeight: "600" }}>· {character.lifetime}</Text>
+        </Text>
+        <Text style={{ color: theme.textSecondary, fontSize: 13 }}>{character.role}</Text>
+        <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, lineHeight: 20 }}>
+          {character.tagline}
+        </Text>
+      </View>
+    </ListRow>
+  );
+}
+
+function PersonRow({ card, last, onPress }: { card: DiscoverCard; last: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  const shared = card.sharedInterests.slice(0, 3);
+  return (
+    <ListRow last={last} onPress={onPress} label={`${card.displayName}, @${card.username}`}>
+      <PersonAvatar name={card.displayName} uri={card.avatarUrl} seed={card.avatarSeed} size={48} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text numberOfLines={1} style={{ color: theme.text, fontSize: 15, fontWeight: "800" }}>
+          {card.displayName} <Text style={{ color: theme.textSecondary, fontWeight: "600" }}>@{card.username}</Text>
+        </Text>
+        {card.bio ? (
+          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, lineHeight: 20 }}>
+            {card.bio}
+          </Text>
+        ) : null}
+        {shared.length ? (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+            {shared.map((interest) => (
+              <View key={interest} style={{ backgroundColor: Pastels.yellow.bg, borderRadius: Radius.pill, paddingHorizontal: 10, paddingVertical: 3 }}>
+                <Text style={{ color: Pastels.yellow.text, fontSize: 12, fontWeight: "700" }}>{interest} · shared</Text>
               </View>
             ))}
           </View>
         ) : null}
-        {card.bio ? (
-          <Text numberOfLines={2} style={{ color: theme.text, fontSize: 15, lineHeight: 22 }}>
-            {card.bio}
-          </Text>
-        ) : null}
-        {card.matchReasons.length ? (
-          <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 18 }}>
-            {card.matchReasons.slice(0, 2).join(" · ")}
-          </Text>
-        ) : null}
-        <Pressable
-          accessibilityRole="link"
-          onPress={onProfile}
-          style={{ alignItems: "center", alignSelf: "flex-start", flexDirection: "row", gap: 6, minHeight: 44 }}
-        >
-          <Text style={{ color: theme.primary, fontSize: 14, fontWeight: "800" }}>View full profile</Text>
-          <Ionicons color={theme.primary} name="arrow-forward" size={16} />
-        </Pressable>
-        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: 10 }}>
-          <Ionicons color={theme.tintText} name="lock-closed" size={15} style={{ marginTop: 2 }} />
-          <Text style={{ color: theme.textSecondary, flex: 1, fontSize: 12.5, lineHeight: 18 }}>{privacyLine(card)}</Text>
-        </View>
-        {children}
       </View>
-    </View>
-  );
-}
-
-function ActionBar({
-  card,
-  busy,
-  onChat,
-  onIgnore,
-  onMiddle,
-  onNext,
-}: {
-  card: DiscoverCard;
-  busy: { meet: boolean; ignore: boolean; middle: boolean };
-  onChat: () => void;
-  onIgnore: () => void;
-  onMiddle: () => void;
-  onNext: () => void;
-}) {
-  const theme = useTheme();
-  const middle = middleAction(card);
-  const middleIcon: Record<typeof middle.kind, IconName> = {
-    like: "heart-outline",
-    liked: "heart",
-    connect: "person-add-outline",
-    sent: "time-outline",
-    review: "checkmark",
-  };
-  return (
-    <View
-      style={{
-        alignSelf: "stretch",
-        backgroundColor: theme.background,
-        borderTopColor: theme.border,
-        borderTopWidth: 1,
-        paddingBottom: 10,
-        paddingHorizontal: 16,
-        paddingTop: 10,
-      }}
-    >
-      <View style={{ alignSelf: "center", gap: 8, maxWidth: 680, width: "100%" }}>
-        <PrimaryButton
-          icon="chatbubble-ellipses"
-          label={busy.meet ? "Opening Twin chat…" : "Talk to their Twin"}
-          disabled={!card.twinAvailable || busy.meet}
-          onPress={onChat}
-        />
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <SecondaryButton icon="close" label="Skip" disabled={busy.ignore} muted onPress={onIgnore} />
-          <SecondaryButton
-            icon={middleIcon[middle.kind]}
-            label={middle.label}
-            disabled={middle.disabled || busy.middle}
-            accent={middle.kind === "like" ? theme.accent : middle.kind === "connect" ? theme.primary : undefined}
-            onPress={onMiddle}
-          />
-          <SecondaryButton icon="arrow-forward" label="Next" trailing onPress={onNext} />
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function SecondaryButton({
-  icon,
-  label,
-  onPress,
-  disabled,
-  muted,
-  accent,
-  trailing,
-}: {
-  icon: IconName;
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  muted?: boolean;
-  accent?: string;
-  trailing?: boolean;
-}) {
-  const theme = useTheme();
-  const color = disabled ? theme.textSecondary : (accent ?? (muted ? theme.textSecondary : theme.text));
-  const iconNode = <Ionicons color={color} name={icon} size={16} />;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled) }}
-      disabled={disabled}
-      onPress={onPress}
-      style={{
-        alignItems: "center",
-        backgroundColor: disabled ? theme.tint : "transparent",
-        borderColor: theme.border,
-        borderRadius: Radius.pill,
-        borderWidth: 1,
-        flex: 1,
-        flexDirection: "row",
-        gap: 6,
-        justifyContent: "center",
-        minHeight: 48,
-        paddingHorizontal: 8,
-      }}
-    >
-      {trailing ? null : iconNode}
-      <Text numberOfLines={1} style={{ color, fontSize: 14, fontWeight: "800" }}>
-        {label}
-      </Text>
-      {trailing ? iconNode : null}
-    </Pressable>
+    </ListRow>
   );
 }
