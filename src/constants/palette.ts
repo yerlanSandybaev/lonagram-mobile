@@ -7,3 +7,10 @@ export const Pastels = {
   lavender: { bg: "#EDE7FF", text: "#3D1FA8" },
   peach: { bg: "#FFD9C2", text: "#5A2D10" },
 } as const;
+
+// Custom fonts have one family per weight, so weights map to family names.
+// System fallbacks keep text readable until (or if) the fonts fail to load.
+export const FontFamilies = {
+  body: { 500: "Manrope_500Medium", 600: "Manrope_600SemiBold", 700: "Manrope_700Bold", 800: "Manrope_800ExtraBold" },
+  heading: { 700: "BricolageGrotesque_700Bold", 800: "BricolageGrotesque_800ExtraBold" },
+} as const;

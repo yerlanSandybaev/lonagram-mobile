@@ -159,6 +159,7 @@ export default function TwinChatScreen() {
                   </Text>
                 ) : null}
                 <Text
+                  content
                   selectable
                   style={
                     row.mine

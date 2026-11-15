@@ -6,9 +6,9 @@ import { Text } from "@/components/app-text";
 import { Radius } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { loadAppearance, setAppearance, type AppearanceChoice } from "@/lib/appearance";
-import { saveTwin, type Bundle } from "@/lib/lonagram";
+import { saveTwin, setTwinCheckIns, setTwinShareChatMemories, type Bundle } from "@/lib/lonagram";
 
-// Settings > Your Twin (publish) and Appearance (light / dark / system).
+// Settings > Your Twin (publish, use what I tell it, message me first) and Appearance (light / dark / system).
 export function SettingsPreferences({ userId, bundle }: { userId: string; bundle: Bundle | undefined }) {
   const theme = useTheme();
   const cache = useQueryClient();
@@ -21,6 +21,12 @@ export function SettingsPreferences({ userId, bundle }: { userId: string; bundle
     onSuccess: () => cache.invalidateQueries({ queryKey: ["bundle", userId] }),
   });
   const published = publish.isPending ? Boolean(publish.variables) : Boolean(bundle?.twin.enabled);
+  const refresh = () => cache.invalidateQueries({ queryKey: ["bundle", userId] });
+  const shareFacts = useMutation({ mutationFn: setTwinShareChatMemories, onSuccess: refresh });
+  const checkIns = useMutation({ mutationFn: setTwinCheckIns, onSuccess: refresh });
+  const sharing = shareFacts.isPending ? Boolean(shareFacts.variables) : Boolean(bundle?.twin.shareChatMemories);
+  // Check-ins are on unless the owner turned them off.
+  const checking = checkIns.isPending ? Boolean(checkIns.variables) : bundle?.twin.checkInsEnabled !== false;
   return (
     <View style={{ gap: 20 }}>
       <View style={{ gap: 6 }}>
@@ -42,6 +48,30 @@ export function SettingsPreferences({ userId, bundle }: { userId: string; bundle
           />
         </View>
         {publish.error ? <Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 13 }}>{publish.error.message}</Text> : null}
+        <Toggle
+          title="Let my Twin use what I tell it"
+          detail={
+            sharing
+              ? "On — things you tell your Twin on Home can be used when it talks to others. Health, money, religion, relationships and other sensitive things stay private."
+              : "Off — things you tell your Twin stay private. You can still share a single fact from the chat or from Your Twin's memories."
+          }
+          value={sharing}
+          disabled={!bundle || shareFacts.isPending}
+          onChange={(value) => shareFacts.mutate(value)}
+          error={shareFacts.error?.message}
+        />
+        <Toggle
+          title="Let my Twin message me first"
+          detail={
+            checking
+              ? "On — your Twin asks you one short question a day at most, to know you better. Answers are remembered privately."
+              : "Off — your Twin only replies when you write."
+          }
+          value={checking}
+          disabled={!bundle || checkIns.isPending}
+          onChange={(value) => checkIns.mutate(value)}
+          error={checkIns.error?.message}
+        />
       </View>
       <View style={{ gap: 10 }}>
         <Text heading accessibilityRole="header" style={{ color: theme.text, fontSize: 19, fontWeight: "800" }}>Appearance</Text>
@@ -67,6 +97,29 @@ export function SettingsPreferences({ userId, bundle }: { userId: string; bundle
           })}
         </View>
       </View>
+    </View>
+  );
+}
+
+function Toggle({ title, detail, value, disabled, onChange, error }: { title: string; detail: string; value: boolean; disabled: boolean; onChange: (value: boolean) => void; error?: string }) {
+  const theme = useTheme();
+  return (
+    <View style={{ gap: 4 }}>
+      <View style={{ alignItems: "center", flexDirection: "row", gap: 12, minHeight: 52 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: theme.text, fontSize: 15, fontWeight: "700" }}>{title}</Text>
+          <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 19 }}>{detail}</Text>
+        </View>
+        <Switch
+          accessibilityLabel={title}
+          disabled={disabled}
+          onValueChange={onChange}
+          thumbColor="#FFFFFF"
+          trackColor={{ false: theme.border, true: theme.primary }}
+          value={value}
+        />
+      </View>
+      {error ? <Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 13 }}>{error}</Text> : null}
     </View>
   );
 }

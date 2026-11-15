@@ -41,6 +41,7 @@ export function ChatComposer({
       ) : null}
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
         <TextInput
+          content
           accessibilityLabel={placeholder}
           editable={!disabled && !draft.pending}
           maxLength={2000}

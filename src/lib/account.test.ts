@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { changePassword, forgotPasswordUrl, legalUrl, publicTwinUrl, setRecoveryEmail, signOutOtherDevices, validateNewPassword, type AccountAuthClient } from "./account";
+import { apiOrigin, changePassword, forgotPasswordUrl, legalUrl, publicTwinUrl, setRecoveryEmail, signOutOtherDevices, validateNewPassword, type AccountAuthClient } from "./account";
 
 function fake(overrides: Record<string, unknown> = {}) {
   const auth = {
@@ -77,5 +77,16 @@ describe("legalUrl", () => {
     expect(legalUrl("privacy", "https://lonagram.com/")).toBe("https://lonagram.com/privacy");
     expect(legalUrl("terms", undefined)).toBe("https://lonagram.com/terms");
     expect(legalUrl("support", "")).toBe("https://lonagram.com/support");
+  });
+});
+
+describe("apiOrigin", () => {
+  it("talks to lonagram.com without www, since the redirect can drop the sign-in header", () => {
+    expect(apiOrigin("https://www.lonagram.com/")).toBe("https://lonagram.com");
+    expect(apiOrigin("https://WWW.lonagram.com")).toBe("https://lonagram.com");
+    expect(apiOrigin("https://lonagram.com")).toBe("https://lonagram.com");
+    expect(apiOrigin("http://localhost:3000")).toBe("http://localhost:3000");
+    expect(apiOrigin("https://www.lonagram.community")).toBe("https://www.lonagram.community");
+    expect(apiOrigin("  ")).toBeNull();
   });
 });

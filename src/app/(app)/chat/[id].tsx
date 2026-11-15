@@ -94,6 +94,7 @@ export default function HumanChatScreen() {
                   }}
                 >
                   <Text
+                    content
                     style={{
                       color: mine ? theme.background : theme.text,
                       lineHeight: 20,

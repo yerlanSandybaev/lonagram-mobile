@@ -17,9 +17,12 @@ export type AccountAuthClient = {
 };
 export type AccountResult = { ok: true; notice: string } | { ok: false; error: string };
 
+// www.lonagram.com answers with a 308 to lonagram.com, and a redirect can drop the
+// Authorization header ("Sign in required"). Always talk to the bare domain.
 export function apiOrigin(raw: string | undefined): string | null {
   const value = raw?.trim().replace(/\/+$/, "");
-  return value ? value : null;
+  if (!value) return null;
+  return value.replace(/^(https?:\/\/)www\.lonagram\.com(?=$|[/:])/i, "$1lonagram.com");
 }
 
 // Public Twin page with a link preview on the website.

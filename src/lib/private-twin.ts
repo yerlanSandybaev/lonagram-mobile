@@ -47,19 +47,43 @@ export const WELCOME = "Hey, I'm here. What's on your mind?";
 export const MEMORY_FULL = "Your Twin's memory is full. Delete old notes under Your Twin's memories to save new ones.";
 export const SENSITIVE_CONFIRM = "This is about a sensitive topic. Share it with other people?";
 
-export function initialChat(): ChatState {
-  return { lines: [{ id: "welcome", role: "twin", text: WELCOME }], memories: [], history: [], attempt: null, error: "" };
+export function initialChat(greeting: string | null = WELCOME): ChatState {
+  return { lines: greeting ? [{ id: "welcome", role: "twin", text: greeting }] : [], memories: [], history: [], attempt: null, error: "" };
 }
 
-// A Twin line from the server, e.g. a check-in: { id: "checkin:<uuid>", role: "twin", text, reason? }.
-// No mobile operation returns these yet (chat history and prepareTwinCheckIn are still web-only);
-// this is the slot they will use. Returns null for anything that is not a usable Twin line.
-export function twinLineFrom(raw: unknown): ChatLine | null {
+// A saved line from the server: { id, role: "you" | "twin", text, reason? }. Twin lines with an
+// id "checkin:..." are the Twin's own questions (twin.private.history, twin.checkIn.prepare,
+// onboarding.question). Returns null for anything unusable.
+export function lineFrom(raw: unknown): ChatLine | null {
   if (!raw || typeof raw !== "object") return null;
   const { id, role, text, reason } = raw as Record<string, unknown>;
-  if (typeof id !== "string" || !id || role !== "twin" || typeof text !== "string" || !text.trim()) return null;
-  const why = typeof reason === "string" ? reason.trim() : "";
-  return { id, role: "twin", text: text.trim(), ...(why ? { reason: why } : {}) };
+  if (typeof id !== "string" || !id || (role !== "twin" && role !== "you") || typeof text !== "string" || !text.trim()) return null;
+  const why = role === "twin" && typeof reason === "string" ? reason.trim() : "";
+  return { id, role, text: text.trim(), ...(why ? { reason: why } : {}) };
+}
+
+export function twinLineFrom(raw: unknown): ChatLine | null {
+  const line = lineFrom(raw);
+  return line?.role === "twin" ? line : null;
+}
+
+// Adds lines that are not shown yet, keeping order. Used for saved history and check-ins.
+export function appendLines(state: ChatState, incoming: ChatLine[]): ChatState {
+  const seen = new Set(state.lines.map((line) => line.id));
+  const fresh = incoming.filter((line) => !seen.has(line.id) && seen.add(line.id));
+  return fresh.length ? { ...state, lines: [...state.lines, ...fresh] } : state;
+}
+
+// Saved history goes before anything typed in this visit. The short dialogue the server
+// uses for context is rebuilt from the last turns.
+export function withHistory(state: ChatState, saved: ChatLine[]): ChatState {
+  const current = new Set(state.lines.map((line) => line.id));
+  const earlier = saved.filter((line) => !current.has(line.id));
+  const lines = [...earlier, ...state.lines];
+  const history = state.history.length
+    ? state.history
+    : recent(earlier.filter((line) => !line.id.startsWith("checkin:")).map((line) => ({ role: line.role, text: line.text })));
+  return { ...state, lines, history };
 }
 
 const recent = (history: DialogueLine[]) => history.slice(-HISTORY_LIMIT);
@@ -232,6 +256,20 @@ export function createPrivateTwinApi(call: Call, runIntent: RunIntent) {
         { ...rest, ...(history?.length ? { history: recent(history) } : {}), ...(targetMemoryId ? { targetMemoryId } : {}) },
         input.requestId,
       );
+    },
+    async history(): Promise<ChatLine[]> {
+      const rows = await call<unknown[]>("twin.private.history");
+      return (Array.isArray(rows) ? rows : []).map(lineFrom).filter((line): line is ChatLine => line !== null);
+    },
+    // The Twin may write first when Home opens. Safe to call every time.
+    async checkIn(): Promise<ChatLine | null> {
+      const result = await call<{ line: unknown }>("twin.checkIn.prepare");
+      return twinLineFrom(result?.line);
+    },
+    // Onboarding asks 0, then 1 after the owner answers, then 2. null means skip to the end.
+    async onboardingQuestion(index: 0 | 1 | 2): Promise<ChatLine | null> {
+      const result = await call<{ line: unknown }>("onboarding.question", { index });
+      return twinLineFrom(result?.line);
     },
     listQuestions() {
       return call<VisitorQuestion[]>("twin.question.list");

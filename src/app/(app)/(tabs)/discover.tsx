@@ -9,6 +9,7 @@ import { Text, TextInput } from "@/components/app-text";
 import { Monogram } from "@/components/character-ui";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Pastels, Radius } from "@/constants/theme";
+import { useCharacters } from "@/hooks/use-characters";
 import { useTheme } from "@/hooks/use-theme";
 import { searchCharacters, type Character } from "@/lib/characters";
 import { discoverApi, type DiscoverCard } from "@/lib/lonagram";
@@ -31,7 +32,8 @@ export default function DiscoverScreen() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const characters = useMemo(() => searchCharacters(search), [search]);
+  const { characters: allCharacters } = useCharacters();
+  const characters = useMemo(() => searchCharacters(search, allCharacters), [search, allCharacters]);
   const people = useQuery({
     queryKey: ["discover-cards", userId, query],
     queryFn: () => discoverApi.list({ query, limit: LIMIT }),

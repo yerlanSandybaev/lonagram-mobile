@@ -112,6 +112,7 @@ export default function TwinMemoriesScreen() {
                 {editing === memory.id ? (
                   <View style={{ gap: 8 }}>
                     <TextInput
+                      content
                       accessibilityLabel="Edit memory"
                       editable={!busy}
                       maxLength={1000}
@@ -128,7 +129,7 @@ export default function TwinMemoriesScreen() {
                   </View>
                 ) : (
                   <>
-                    <Text selectable style={{ color: theme.text, fontSize: 15, lineHeight: 22 }}>{memory.response}</Text>
+                    <Text content selectable style={{ color: theme.text, fontSize: 15, lineHeight: 22 }}>{memory.response}</Text>
                     {confirming === memory.id ? (
                       <View style={{ gap: 8 }}>
                         <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 19 }}>{SENSITIVE_CONFIRM}</Text>

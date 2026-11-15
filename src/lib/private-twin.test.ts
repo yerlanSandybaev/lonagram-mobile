@@ -3,6 +3,7 @@ import {
   MEMORY_FULL,
   applyMemoryChange,
   applyReply,
+  appendLines,
   applyUndo,
   applyVisibility,
   beginSend,
@@ -11,6 +12,8 @@ import {
   failSend,
   initialChat,
   isMissingOperation,
+  lineFrom,
+  withHistory,
   twinLineFrom,
   memoryUpdateInput,
   needsShareConfirmation,
@@ -183,5 +186,42 @@ describe("twinLineFrom", () => {
     expect(twinLineFrom({ id: "x", role: "you", text: "Hi" })).toBeNull();
     expect(twinLineFrom({ id: "", role: "twin", text: "Hi" })).toBeNull();
     expect(twinLineFrom({ id: "x", role: "twin", text: " " })).toBeNull();
+  });
+});
+
+describe("saved history and check-ins", () => {
+  it("lineFrom keeps you and twin lines, reason only on twin lines", () => {
+    expect(lineFrom({ id: "r1", role: "you", text: "hi", reason: "x" })).toEqual({ id: "r1", role: "you", text: "hi" });
+    expect(lineFrom({ id: "checkin:1", role: "twin", text: "Q?", reason: "Why" })).toEqual({ id: "checkin:1", role: "twin", text: "Q?", reason: "Why" });
+    expect(lineFrom({ id: "x", role: "character", text: "no" })).toBeNull();
+  });
+  it("withHistory puts saved lines first, skips duplicates and rebuilds context without check-ins", () => {
+    const merged = withHistory(initialChat(null), [
+      { id: "checkin:1", role: "twin", text: "What do you do on weekends?", reason: "So I can answer more like you." },
+      { id: "r1", role: "you", text: "Climbing" },
+      { id: "r1:reply", role: "twin", text: "Nice." },
+    ]);
+    expect(merged.lines.map((line) => line.id)).toEqual(["checkin:1", "r1", "r1:reply"]);
+    expect(merged.history).toEqual([{ role: "you", text: "Climbing" }, { role: "twin", text: "Nice." }]);
+    expect(withHistory(merged, [{ id: "r1", role: "you", text: "Climbing" }]).lines).toHaveLength(3);
+  });
+  it("appendLines adds a check-in once", () => {
+    const line = { id: "checkin:2", role: "twin" as const, text: "Q?" };
+    const once = appendLines(initialChat(null), [line]);
+    expect(appendLines(once, [line])).toBe(once);
+    expect(once.lines).toHaveLength(1);
+  });
+  it("calls only the live operations with the right input", async () => {
+    const call = vi.fn(async (op: string) => {
+      if (op === "twin.private.history") return [{ id: "r1", role: "you", text: "hi" }, { bad: true }];
+      if (op === "twin.checkIn.prepare") return { line: { id: "checkin:3", role: "twin", text: "Q?", reason: "R" } };
+      return { line: null };
+    });
+    const api = createPrivateTwinApi(call as never, (_s, run) => run("k"));
+    expect(await api.history()).toEqual([{ id: "r1", role: "you", text: "hi" }]);
+    expect(await api.checkIn()).toEqual({ id: "checkin:3", role: "twin", text: "Q?", reason: "R" });
+    expect(await api.onboardingQuestion(1)).toBeNull();
+    expect(call.mock.calls.map((c) => c[0])).toEqual(["twin.private.history", "twin.checkIn.prepare", "onboarding.question"]);
+    expect((call.mock.calls[2] as unknown[])[1]).toEqual({ index: 1 });
   });
 });

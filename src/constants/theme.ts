@@ -8,7 +8,7 @@ export const palette = {
   danger: "#FF8FA8", coral: "#FF7A9C",
 } as const;
 
-export { Pastels } from "./palette";
+export { FontFamilies, Pastels } from "./palette";
 
 export const Colors = {
   light: {
@@ -27,12 +27,6 @@ export const Colors = {
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
-// Custom fonts have one family per weight, so weights map to family names.
-// System fallbacks keep text readable until (or if) the fonts fail to load.
-export const FontFamilies = {
-  body: { 500: "Manrope_500Medium", 600: "Manrope_600SemiBold", 700: "Manrope_700Bold", 800: "Manrope_800ExtraBold" },
-  heading: { 700: "BricolageGrotesque_700Bold", 800: "BricolageGrotesque_800ExtraBold" },
-} as const;
 
 export const Fonts = Platform.select({
   ios: { sans: "system-ui", serif: "ui-serif", rounded: "ui-rounded", mono: "ui-monospace" },

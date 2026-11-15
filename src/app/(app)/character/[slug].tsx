@@ -8,16 +8,18 @@ import { PrimaryButton } from "@/components/mobile-ui";
 import { EmptyState } from "@/components/premium-ui";
 import { Radius } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { characterDisclaimer, findCharacter } from "@/lib/characters";
-import { characterChatApi } from "@/lib/lonagram";
+import { useCharacter } from "@/hooks/use-characters";
+import { characterDisclaimer } from "@/lib/characters";
 
 // Mirrors the website's /characters/<slug> page.
 export default function CharacterProfileScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { slug } = useLocalSearchParams<{ slug: string }>();
-  const character = findCharacter(slug);
+  const { character, loading } = useCharacter(slug);
 
+  if (!character && loading)
+    return <View style={{ backgroundColor: theme.background, flex: 1 }}><Stack.Screen options={{ title: "" }} /></View>;
   if (!character)
     return (
       <View style={{ backgroundColor: theme.background, flex: 1, padding: 24 }}>
@@ -26,7 +28,6 @@ export default function CharacterProfileScreen() {
       </View>
     );
 
-  const chatReady = characterChatApi !== null;
   return (
     <ScrollView contentContainerStyle={{ alignSelf: "center", gap: 28, maxWidth: 680, padding: 24, paddingBottom: 48, width: "100%" }}>
       <Stack.Screen options={{ title: "" }} />
@@ -47,13 +48,11 @@ export default function CharacterProfileScreen() {
             <PrimaryButton
               icon="chatbubble-ellipses"
               label={`Chat with ${character.name}`}
-              disabled={!chatReady}
               onPress={() => router.push({ pathname: "/character-chat/[slug]" as never, params: { slug: character.slug } } as never)}
             />
           </View>
           <Text style={{ color: theme.textSecondary, fontSize: 14 }}>{character.role}</Text>
         </View>
-        {chatReady ? null : <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Coming soon to the app</Text>}
       </View>
 
       <Section title="About">

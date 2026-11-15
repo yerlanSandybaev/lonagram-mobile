@@ -1,5 +1,5 @@
 import { mobileApi } from "@/lib/api";
-import type { CharacterChatApi } from "@/lib/characters";
+import { createCharacterApi } from "@/lib/characters";
 import { createDiscoverApi } from "@/lib/discover";
 import { createPrivateTwinApi } from "@/lib/private-twin";
 import { createIntentRunner } from "@/lib/request-intents";
@@ -9,9 +9,8 @@ export type { DiscoverCard } from "@/lib/discover";
 export const discoverApi = createDiscoverApi(mobileApi, intent);
 // The user's own private Twin: chat, plus the memories it keeps.
 export const privateTwinApi = createPrivateTwinApi(mobileApi, intent);
-// Character Twin chat. null until /api/mobile/v1 has the character chat operations;
-// the profile disables "Chat with …" and the chat screen shows "Coming soon to the app".
-export const characterChatApi: CharacterChatApi | null = null;
+// Character Twins: public profiles (characters.list) and each person's private chat with them.
+export const characterApi = createCharacterApi(mobileApi);
 
 export type Profile = {
   id: string;
@@ -34,6 +33,9 @@ export type TwinProfile = {
   interestingConversation: string;
   publicIntroduction: string;
   enabled: boolean;
+  // From settings.get; changed only through their own switches.
+  checkInsEnabled?: boolean;
+  shareChatMemories?: boolean;
 };
 export type TwinPermissions = {
   allowTwinChat: boolean;
@@ -357,4 +359,11 @@ export function runTwinTurn(conversationId: string, cue: string, key: string) {
 }
 export function markTwinRead(conversationId: string, lastSeenId: string) {
   return mobileApi("twin.inbox", { conversationId, lastSeenId });
+}
+
+export function setTwinCheckIns(enabled: boolean) {
+  return mobileApi<{ enabled: boolean }>("twin.checkIns.set", { enabled });
+}
+export function setTwinShareChatMemories(enabled: boolean) {
+  return mobileApi<{ enabled: boolean }>("twin.shareChatMemories.set", { enabled });
 }

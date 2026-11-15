@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { CHARACTERS, characterDisclaimer, findCharacter, monogram, searchCharacters } from "./characters";
+import { describe, expect, it, vi } from "vitest";
+import { CHARACTERS, characterDisclaimer, createCharacterApi, findCharacter, monogram, searchCharacters } from "./characters";
 
 describe("characters", () => {
   it("has Aristotle with the website's data", () => {
@@ -19,5 +19,22 @@ describe("characters", () => {
     expect(searchCharacters("philosopher")).toHaveLength(1);
     expect(searchCharacters("golden mean")).toHaveLength(1);
     expect(searchCharacters("napoleon")).toHaveLength(0);
+  });
+});
+
+describe("character api", () => {
+  it("uses the request id as the Idempotency-Key and trims the message", async () => {
+    const call = vi.fn(async () => ({ id: "c1", text: "Hello" }));
+    const api = createCharacterApi(call as never);
+    const id = "11111111-1111-4111-8111-111111111111";
+    await api.send("aristotle", "  What is a happy life?  ", id);
+    expect(call).toHaveBeenCalledWith("character.chat.send", { slug: "aristotle", cue: "What is a happy life?", requestId: id }, id);
+    await api.history("aristotle");
+    await api.clear("aristotle");
+    await api.list();
+    expect(call.mock.calls.map((c) => (c as unknown[])[0])).toEqual(["character.chat.send", "character.chat.get", "character.chat.clear", "characters.list"]);
+  });
+  it("finds characters in a server list", () => {
+    expect(findCharacter("plato", [{ ...CHARACTERS[0], slug: "plato", name: "Plato" }])?.name).toBe("Plato");
   });
 });

@@ -148,7 +148,7 @@ export default function OnboardingScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         {header}
         <View style={{ flex: 1 }}>
-          <PrivateTwinChat greeting={twinGreeting(displayName)} showQuestions={false} showMemoriesLink={false} placeholder="A few words is enough" bottomInset={false} />
+          <PrivateTwinChat mode="onboarding" greeting={twinGreeting(displayName)} placeholder="A few words is enough" bottomInset={false} />
         </View>
         <View style={{ paddingBottom: 16, paddingHorizontal: 20 }}>
           <PrimaryButton label="Go to Lonagram" onPress={() => router.replace("/")} />

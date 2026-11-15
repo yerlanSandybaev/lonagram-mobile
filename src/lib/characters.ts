@@ -1,6 +1,6 @@
 // Character Twins: AI portrayals of historical people. Not user accounts, no owner.
-// Keep in step with the website's src/domain/characters.ts. To add a character,
-// add one entry to CHARACTERS.
+// The app reads them from characters.list. CHARACTERS is only what shows before
+// that first load (and offline); keep it in step with the website's src/domain/characters.ts.
 
 export type Character = {
   slug: string;
@@ -53,8 +53,8 @@ export const CHARACTERS: Character[] = [
   },
 ];
 
-export function findCharacter(slug: string | undefined): Character | undefined {
-  return CHARACTERS.find((character) => character.slug === slug);
+export function findCharacter(slug: string | undefined, list: Character[] = CHARACTERS): Character | undefined {
+  return list.find((character) => character.slug === slug);
 }
 
 export function monogram(character: Pick<Character, "name">): string {
@@ -76,12 +76,24 @@ export function searchCharacters(query: string, list: Character[] = CHARACTERS):
 }
 
 // Chat with a Character Twin. Each chat is private to its writer and saved on the server.
-// The operations do not exist in /api/mobile/v1 yet (web: getCharacterChat,
-// talkWithCharacter, clearCharacterChat). When they ship, implement this and set
-// characterChatApi in lonagram.ts; the chat screen enables itself.
 export type CharacterLine = { id: string; role: "you" | "character"; text: string };
-export type CharacterChatApi = {
-  history(slug: string): Promise<CharacterLine[]>;
-  talk(slug: string, text: string, requestId: string): Promise<CharacterLine>;
-  clear(slug: string): Promise<void>;
-};
+
+type Call = <T>(operation: string, input?: unknown, key?: string) => Promise<T>;
+
+export function createCharacterApi(call: Call) {
+  return {
+    list() {
+      return call<Character[]>("characters.list");
+    },
+    history(slug: string) {
+      return call<CharacterLine[]>("character.chat.get", { slug });
+    },
+    // The request id is also the Idempotency-Key. Reuse both when retrying the same message.
+    send(slug: string, cue: string, requestId: string) {
+      return call<{ id: string; text: string }>("character.chat.send", { slug, cue: cue.trim(), requestId }, requestId);
+    },
+    clear(slug: string) {
+      return call<{ cleared: true }>("character.chat.clear", { slug });
+    },
+  };
+}
