@@ -32,7 +32,56 @@ Local iOS Simulator execution requires macOS and Xcode (`npm run ios`). Windows 
 npx expo export --platform ios --platform android --output-dir dist --max-workers 2
 ```
 
-These are bundle checks, not signed IPA/APK builds. No EAS project, signing credentials, store submission, or deployment has been created.
+These are bundle checks, not signed IPA/APK builds.
+
+## EAS build
+
+Builds run on Expo's servers with [EAS Build](https://docs.expo.dev/build/introduction/). [eas.json](eas.json) has three profiles, each tied to the EAS environment of the same name:
+
+| Profile | EAS environment | Output |
+| --- | --- | --- |
+| `development` | `development` | Development client: Android APK, iOS Simulator build |
+| `preview` | `preview` | Internal testing: Android APK, iOS ad hoc build |
+| `production` | `production` | Store builds: Android App Bundle (`.aab`), iOS `.ipa`; build number increases automatically |
+
+One-time setup (adds `extra.eas.projectId` to `app.json`):
+
+```sh
+npx eas-cli login
+npx eas-cli init
+```
+
+### Environment variables
+
+`.env.local` is not uploaded to EAS. Add the public values on expo.dev → your project → **Environment variables**, for the **preview** and **production** environments (and **development** if you build that profile):
+
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `EXPO_PUBLIC_LONAGRAM_API_URL` — `https://lonagram.com`, without `www` (the redirect from `www` can drop the sign-in header)
+
+These are public values bundled into the app; use visibility "Plain text" or "Sensitive". Never add server secrets (`SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `SESSION_SECRET`, `LONAGRAM_API_SECRET`).
+
+Note: `eas.json` also sets `EXPO_PUBLIC_LONAGRAM_API_URL` and `EXPO_PUBLIC_SUPABASE_URL` in each profile's `env`, and those values take precedence over the expo.dev ones. To manage them only on expo.dev, remove them from `eas.json`.
+
+### Build commands
+
+```sh
+# Development client (install on a device/simulator, then run `npm start`)
+npx eas-cli build --profile development --platform android
+npx eas-cli build --profile development --platform ios
+
+# Internal testing
+npx eas-cli build --profile preview --platform all
+
+# Store builds
+npx eas-cli build --profile production --platform all
+
+# Upload a finished production build to App Store Connect / Google Play
+npx eas-cli submit --profile production --platform ios
+npx eas-cli submit --profile production --platform android
+```
+
+Store listings need the public pages https://lonagram.com/privacy (Privacy Policy URL) and https://lonagram.com/support (Support URL).
 
 ## Implemented client flows
 
