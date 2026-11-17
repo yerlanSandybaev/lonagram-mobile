@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, Share, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text, TextInput } from "@/components/app-text";
+import { CopyButton } from "@/components/copy-button";
 import { EmptyState } from "@/components/premium-ui";
 import { Thinking } from "@/components/thinking";
 import { Pastels, Radius } from "@/constants/theme";
@@ -73,7 +73,6 @@ export function PrivateTwinChat({
   const chatRef = useRef(chat);
   const [busy, setBusy] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
-  const [copied, setCopied] = useState("");
   const lock = useRef(false);
   const scroll = useRef<ScrollView>(null);
   const commit = (next: ChatState) => {
@@ -190,16 +189,6 @@ export function PrivateTwinChat({
     }
   }
 
-  async function copy(line: ChatLine) {
-    try {
-      await Clipboard.setStringAsync(line.text);
-      setCopied(line.id);
-      setTimeout(() => setCopied((value) => (value === line.id ? "" : value)), 1500);
-    } catch {
-      // Copy is a convenience; the text stays selectable.
-    }
-  }
-
   function openOptions() {
     Alert.alert("Chat options", SAVED_NOTE, [
       { text: "Your Twin's memories", onPress: () => router.push("/twin-memories" as never) },
@@ -259,8 +248,6 @@ export function PrivateTwinChat({
               line={line}
               memories={chat.memories}
               busy={busy}
-              copied={copied === line.id}
-              onCopy={() => void copy(line)}
               onMemory={(memory, intent) => void changeMemory(memory, intent, line)}
               onRetry={() => void send(line.text)}
             />
@@ -476,16 +463,12 @@ function Message({
   line,
   memories,
   busy,
-  copied,
-  onCopy,
   onMemory,
   onRetry,
 }: {
   line: ChatLine;
   memories: TwinMemory[];
   busy: boolean;
-  copied: boolean;
-  onCopy: () => void;
   onMemory: (memory: TwinMemory, intent: "share" | "private" | "delete") => void;
   onRetry: () => void;
 }) {
@@ -498,14 +481,7 @@ function Message({
         <Text content selectable style={{ color: theme.text, fontSize: 15.5, lineHeight: 25 }}>
           {line.text}
         </Text>
-        <Pressable
-          accessibilityLabel={copied ? "Copied" : "Copy reply"}
-          accessibilityRole="button"
-          onPress={onCopy}
-          style={{ alignItems: "center", height: 32, justifyContent: "center", marginLeft: -6, width: 32 }}
-        >
-          <Ionicons color={theme.textSecondary} name={copied ? "checkmark" : "copy-outline"} size={16} />
-        </Pressable>
+        <CopyButton text={line.text} />
       </View>
     );
 

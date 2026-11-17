@@ -2,11 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/app-text";
 import { Monogram } from "@/components/character-ui";
+import { CopyButton } from "@/components/copy-button";
 import { Thinking } from "@/components/thinking";
 import { EmptyState } from "@/components/premium-ui";
 import { Composer } from "@/components/private-twin-chat";
@@ -37,6 +38,8 @@ export default function CharacterChatScreen() {
   // The message being sent. A retry of the same text reuses its id, which is also the Idempotency-Key.
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const scroll = useRef<ScrollView>(null);
+  // Starter cards: two columns, one on narrow phones.
+  const oneColumn = useWindowDimensions().width < 360;
 
   const history = useQuery({ queryKey: key, queryFn: () => characterApi.history(slug), enabled: Boolean(character) });
   const talk = useMutation({
@@ -122,52 +125,68 @@ export default function CharacterChatScreen() {
 
       <ScrollView
         ref={scroll}
-        contentContainerStyle={{ alignSelf: "center", flexGrow: 1, gap: 6, maxWidth: 680, padding: 16, width: "100%" }}
+        contentContainerStyle={{ alignSelf: "center", flexGrow: 1, gap: 18, maxWidth: 720, padding: 16, width: "100%" }}
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: false })}
       >
         {history.isLoading ? (
           <ActivityIndicator color={theme.primary} style={{ marginTop: 32 }} />
         ) : lines.length === 0 ? (
-          <View style={{ alignItems: "center", flex: 1, gap: 16, justifyContent: "center", paddingVertical: 24 }}>
+          <View style={{ alignItems: "center", flex: 1, gap: 12, justifyContent: "center", paddingVertical: 24 }}>
             <Monogram character={character} size={64} />
-            <Text style={{ color: theme.textSecondary, fontSize: 15, lineHeight: 22, maxWidth: 420, textAlign: "center" }}>
-              Ask {character.name} anything. This is a Twin, an AI portrayal built from the historical record, so it can be wrong.
+            <Text heading accessibilityRole="header" style={{ color: theme.text, fontSize: 28, fontWeight: "800", letterSpacing: -0.8, textAlign: "center" }}>
+              {`I’m ${character.name}. What’s on your mind?`}
             </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+            <Text style={{ color: theme.textSecondary, fontSize: 15, lineHeight: 22, maxWidth: 420, textAlign: "center" }}>
+              A Twin, an AI portrayal built from the historical record, so it can be wrong.
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12, maxWidth: 520, width: "100%" }}>
               {character.starters.map((starter) => (
                 <Pressable
                   key={starter}
                   accessibilityRole="button"
                   disabled={!ready || talk.isPending}
                   onPress={() => send(starter)}
-                  style={{ borderColor: theme.border, borderRadius: Radius.pill, borderWidth: 1, justifyContent: "center", minHeight: 40, paddingHorizontal: 14 }}
+                  style={({ pressed }) => ({
+                    backgroundColor: pressed ? theme.tint : theme.backgroundElement,
+                    borderColor: theme.border,
+                    borderRadius: Radius.md,
+                    borderWidth: 1,
+                    flexBasis: oneColumn ? "100%" : "47%",
+                    flexGrow: 1,
+                    justifyContent: "center",
+                    minHeight: 64,
+                    opacity: !ready || talk.isPending ? 0.5 : 1,
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                  })}
                 >
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: "700" }}>{starter}</Text>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: "700", lineHeight: 19 }}>{starter}</Text>
                 </Pressable>
               ))}
             </View>
           </View>
         ) : (
-          lines.map((line, index) => {
-            const mine = line.role === "you";
-            const showName = !mine && (index === 0 || lines[index - 1].role !== line.role);
-            return (
-              <View key={line.id} style={{ alignSelf: mine ? "flex-end" : "flex-start", marginTop: showName ? 10 : 0, maxWidth: "86%" }}>
-                {showName ? <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 4 }}>{character.name}</Text> : null}
+          lines.map((line) =>
+            line.role === "character" ? (
+              // Replies: plain text, full width, no bubble or name; paragraphs kept; Copy underneath.
+              <View key={line.id} style={{ gap: 4 }}>
+                <Text content selectable style={{ color: theme.text, fontSize: 15.5, lineHeight: 25 }}>
+                  {line.text}
+                </Text>
+                <CopyButton text={line.text} />
+              </View>
+            ) : (
+              <View key={line.id} style={{ alignItems: "flex-end", alignSelf: "flex-end", maxWidth: "88%" }}>
                 <Text
                   content
                   selectable
-                  style={
-                    mine
-                      ? { backgroundColor: theme.text, borderRadius: Radius.bubble, color: theme.background, fontSize: 15, lineHeight: 22, overflow: "hidden", paddingHorizontal: 16, paddingVertical: 11 }
-                      : { color: theme.text, fontSize: 15, lineHeight: 24 }
-                  }
+                  style={{ backgroundColor: theme.tint, borderRadius: Radius.bubble, color: theme.text, fontSize: 15, lineHeight: 22, overflow: "hidden", paddingHorizontal: 16, paddingVertical: 10 }}
                 >
                   {line.text}
                 </Text>
                 {line.failed ? (
-                  <View style={{ alignItems: "center", alignSelf: "flex-end", flexDirection: "row", gap: 4 }}>
+                  <View style={{ alignItems: "center", flexDirection: "row", gap: 4 }}>
                     <Text style={{ color: theme.textSecondary, fontSize: 12 }}>Not sent</Text>
                     <Pressable accessibilityRole="button" disabled={talk.isPending} onPress={() => send(line.text)} style={{ justifyContent: "center", minHeight: 44, paddingHorizontal: 8 }}>
                       <Text style={{ color: theme.primary, fontSize: 13, fontWeight: "800" }}>Retry</Text>
@@ -175,8 +194,8 @@ export default function CharacterChatScreen() {
                   </View>
                 ) : null}
               </View>
-            );
-          })
+            ),
+          )
         )}
         {talk.isPending ? <Thinking name={character.name} /> : null}
       </ScrollView>

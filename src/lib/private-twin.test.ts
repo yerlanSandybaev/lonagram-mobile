@@ -225,3 +225,12 @@ describe("saved history and check-ins", () => {
     expect((call.mock.calls[2] as unknown[])[1]).toEqual({ index: 1 });
   });
 });
+
+describe("plan follow-ups", () => {
+  it("a check-in without a reason has no reason field, so no empty reason row is drawn", () => {
+    const line = twinLineFrom({ id: "checkin:plan-1", role: "twin", text: "How did the driving exam go?" });
+    expect(line).toEqual({ id: "checkin:plan-1", role: "twin", text: "How did the driving exam go?" });
+    expect(line).not.toHaveProperty("reason");
+    expect(twinLineFrom({ id: "checkin:plan-2", role: "twin", text: "Ready for Friday?", reason: null })).not.toHaveProperty("reason");
+  });
+});

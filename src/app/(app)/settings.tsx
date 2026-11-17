@@ -149,7 +149,7 @@ export default function SettingsScreen() {
           </Text>
         ) : null}
       </QueryState>
-      <Text style={{ color: theme.text, fontWeight: "700" }}>About</Text>
+      <Text style={{ color: theme.text, fontWeight: "700" }}>About Lonagram</Text>
       <Section>
         <Row icon="document-lock-outline" title="Privacy Policy" onPress={() => void WebBrowser.openBrowserAsync(legalUrl("privacy"))} />
         <Row icon="document-text-outline" title="Terms of Service" onPress={() => void WebBrowser.openBrowserAsync(legalUrl("terms"))} />

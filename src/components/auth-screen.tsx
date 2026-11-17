@@ -12,6 +12,7 @@ import { forgotPasswordUrl, legalUrl } from "@/lib/account";
 import { useAuth } from "@/providers/auth-provider";
 
 type Mode = "sign-in" | "sign-up";
+const LEGAL_LABELS = { privacy: "Privacy", terms: "Terms", support: "Support" } as const;
 
 export function AuthScreen({ mode }: { mode: Mode }) {
   const theme = useTheme();
@@ -218,6 +219,18 @@ export function AuthScreen({ mode }: { mode: Mode }) {
               {mode === "sign-up" ? "Sign in" : "Create an account"}
             </Link>
           </Text>
+          <View accessibilityLabel="Legal" style={styles.legalLinks}>
+            {(["privacy", "terms", "support"] as const).map((page) => (
+              <Pressable
+                key={page}
+                accessibilityRole="link"
+                onPress={() => void WebBrowser.openBrowserAsync(legalUrl(page))}
+                style={{ justifyContent: "center", minHeight: 44, paddingHorizontal: 4 }}
+              >
+                <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{LEGAL_LABELS[page]}</Text>
+              </Pressable>
+            ))}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -276,4 +289,5 @@ const styles = StyleSheet.create({
   buttonLabel: { fontSize: 16, fontWeight: "800" },
   footer: { fontSize: 14, marginTop: 18 },
   legal: { fontSize: 13, lineHeight: 19, marginTop: 12, textAlign: "center" },
+  legalLinks: { flexDirection: "row", gap: 16, justifyContent: "center", marginTop: 16 },
 });
