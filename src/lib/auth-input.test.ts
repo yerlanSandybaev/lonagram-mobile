@@ -1,27 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { signInEmail, validateSignIn, validateSignUp } from "./auth-input";
+import { isUsername, signInEmail, validateSignIn, validateSignUp } from "./auth-input";
 
 const validSignUp = {
-  email: "maya@example.com",
   password: "lonagram-demo",
-  username: "Maya_Chen",
-  displayName: " Maya Chen ",
+  username: " Maya_Chen ",
   is18Plus: true,
 };
 
 describe("validateSignUp", () => {
-  it("matches the website signup contract and the profile trigger metadata", () => {
-    const result = validateSignUp(validSignUp);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.username).toBe("maya_chen");
-    expect(result.value.displayName).toBe("Maya Chen");
-    expect(result.value.data).toEqual({
-      is_18_plus: true,
-      username: "maya_chen",
-      display_name: "Maya Chen",
+  it("is username and password, like the website, with no email needed", () => {
+    expect(validateSignUp(validSignUp)).toEqual({ ok: true, value: { username: "maya_chen", password: "lonagram-demo" } });
+  });
+
+  it("keeps an optional email, lowercased, and rejects a malformed one", () => {
+    expect(validateSignUp({ ...validSignUp, email: " Maya@Example.com " })).toEqual({
+      ok: true,
+      value: { username: "maya_chen", password: "lonagram-demo", email: "maya@example.com" },
     });
+    expect(validateSignUp({ ...validSignUp, email: "maya@" })).toEqual({ ok: false, error: "Enter a valid email address, or leave it blank." });
   });
 
   it("requires the 18+ confirmation", () => {
@@ -29,9 +26,10 @@ describe("validateSignUp", () => {
     expect(result).toEqual({ ok: false, error: "Lonagram is for adults 18 and older." });
   });
 
-  it("rejects usernames the profiles table would reject", () => {
-    const result = validateSignUp({ ...validSignUp, username: "ab" });
-    expect(result.ok).toBe(false);
+  it("rejects usernames the profiles table would reject and passwords outside 8–128", () => {
+    expect(validateSignUp({ ...validSignUp, username: "ab" }).ok).toBe(false);
+    expect(validateSignUp({ ...validSignUp, password: "short" }).ok).toBe(false);
+    expect(validateSignUp({ ...validSignUp, password: "x".repeat(129) }).ok).toBe(false);
   });
 });
 
@@ -58,5 +56,12 @@ describe("validateSignIn", () => {
     expect(signInEmail("ab")).toBeNull();
     expect(signInEmail("has space")).toBeNull();
     expect(signInEmail("a@b")).toBeNull();
+  });
+});
+
+describe("isUsername", () => {
+  it("tells usernames from email addresses", () => {
+    expect(isUsername(" Maya_Chen ")).toBe(true);
+    expect(isUsername("maya@example.com")).toBe(false);
   });
 });

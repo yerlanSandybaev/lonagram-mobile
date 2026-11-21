@@ -1,55 +1,38 @@
 const USERNAME = /^[a-z0-9_]{3,20}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Sign-up is username + password, with an optional contact email (no code is sent).
 export type SignUpInput = {
-  email: string;
-  password: string;
   username: string;
-  displayName: string;
+  password: string;
+  email?: string;
   is18Plus: boolean;
 };
 
 export type SignUpValues = {
-  email: string;
-  password: string;
   username: string;
-  displayName: string;
-  data: {
-    is_18_plus: true;
-    username: string;
-    display_name: string;
-  };
+  password: string;
+  email?: string;
 };
 
 export type FieldResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
+// Same rules as the website's sign-up.
 export function validateSignUp(input: SignUpInput): FieldResult<SignUpValues> {
   if (!input.is18Plus) return { ok: false, error: "Lonagram is for adults 18 and older." };
   const username = input.username.trim().toLowerCase();
   if (!USERNAME.test(username)) {
     return { ok: false, error: "Username must be 3–20 characters using lowercase letters, numbers, or underscores." };
   }
-  const displayName = input.displayName.trim();
-  if (displayName.length < 2 || displayName.length > 40) {
-    return { ok: false, error: "Display name must be between 2 and 40 characters." };
-  }
-  const email = input.email.trim();
-  if (!EMAIL.test(email)) return { ok: false, error: "Enter a valid email address." };
-  if (input.password.length < 8) return { ok: false, error: "Password must be at least 8 characters." };
-  return {
-    ok: true,
-    value: {
-      email,
-      password: input.password,
-      username,
-      displayName,
-      data: {
-        is_18_plus: true,
-        username,
-        display_name: displayName,
-      },
-    },
-  };
+  if (input.password.length < 8 || input.password.length > 128) return { ok: false, error: "Use a password between 8 and 128 characters." };
+  const email = input.email?.trim().toLowerCase() ?? "";
+  if (email && (!EMAIL.test(email) || email.length > 254)) return { ok: false, error: "Enter a valid email address, or leave it blank." };
+  return { ok: true, value: { username, password: input.password, ...(email ? { email } : {}) } };
+}
+
+// Whether the sign-in field holds a username (not an email address).
+export function isUsername(identifier: string): boolean {
+  return USERNAME.test(identifier.trim().toLowerCase());
 }
 
 // Accounts created with only a username use this internal address on the web (it never receives mail).

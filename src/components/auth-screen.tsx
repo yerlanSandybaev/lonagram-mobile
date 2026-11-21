@@ -21,7 +21,6 @@ export function AuthScreen({ mode }: { mode: Mode }) {
   useEffect(() => {
     void AppleAuthentication.isAvailableAsync().then(setAppleAvailable, () => setAppleAvailable(false));
   }, []);
-  const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +33,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
     setMessage(null);
     const result =
       mode === "sign-up"
-        ? await signUp({ email, password, username, displayName, is18Plus })
+        ? await signUp({ username, password, email, is18Plus })
         : await signIn({ email, password });
     setPending(false);
     if (result.error) setMessage({ text: result.error, notice: Boolean(result.notice) });
@@ -63,24 +62,11 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           ) : null}
           {mode === "sign-up" ? (
             <>
-              <Field label="Display name" theme={theme}>
-                <TextInput
-                  accessibilityLabel="Display name"
-                  autoCapitalize="words"
-                  autoComplete="nickname"
-                  maxLength={40}
-                  onChangeText={setDisplayName}
-                  placeholder="How people see you"
-                  placeholderTextColor={theme.textSecondary}
-                  style={[styles.input, inputStyle(theme)]}
-                  value={displayName}
-                />
-              </Field>
               <Field label="Username" theme={theme}>
                 <TextInput
                   accessibilityLabel="Username"
                   autoCapitalize="none"
-                  autoComplete="username"
+                  autoComplete="username-new"
                   autoCorrect={false}
                   maxLength={20}
                   onChangeText={setUsername}
@@ -90,27 +76,40 @@ export function AuthScreen({ mode }: { mode: Mode }) {
                   value={username}
                 />
               </Field>
+              <Text style={[styles.hint, { color: theme.textSecondary }]}>3–20 letters, numbers, or underscores.</Text>
+              <Field label="Email (optional)" theme={theme}>
+                <TextInput
+                  accessibilityLabel="Email (optional)"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  inputMode="email"
+                  keyboardType="email-address"
+                  maxLength={254}
+                  onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  placeholderTextColor={theme.textSecondary}
+                  style={[styles.input, inputStyle(theme)]}
+                  value={email}
+                />
+              </Field>
               <Text style={[styles.hint, { color: theme.textSecondary }]}>
-                3–20 characters. Letters, numbers, and underscores only.
-              </Text>
-              <Text style={[styles.hint, { color: theme.textSecondary }]}>
-                After you join, add a recovery email in Settings so you can reset your password.
+                No code needed. To use it for password recovery, confirm it later in Settings.
               </Text>
             </>
-          ) : null}
-          <Field label={mode === "sign-in" ? "Email or username" : "Email"} theme={theme}>
-            <TextInput
-              accessibilityLabel={mode === "sign-in" ? "Email or username" : "Email"}
-              autoCapitalize="none"
-              autoComplete={mode === "sign-in" ? "username" : "email"}
-              autoCorrect={false}
-              inputMode={mode === "sign-in" ? "text" : "email"}
-              keyboardType={mode === "sign-in" ? "default" : "email-address"}
-              onChangeText={setEmail}
-              style={[styles.input, inputStyle(theme)]}
-              value={email}
-            />
-          </Field>
+          ) : (
+            <Field label="Email or username" theme={theme}>
+              <TextInput
+                accessibilityLabel="Email or username"
+                autoCapitalize="none"
+                autoComplete="username"
+                autoCorrect={false}
+                onChangeText={setEmail}
+                style={[styles.input, inputStyle(theme)]}
+                value={email}
+              />
+            </Field>
+          )}
           <Field label="Password" theme={theme}>
             <TextInput
               accessibilityLabel="Password"

@@ -16,12 +16,15 @@ import { MOBILE_AUTH_REDIRECT, oauthCode } from "@/lib/oauth-callback";
 import { uuidv4 } from "@/lib/uuid";
 
 import {
+  isUsername,
   validateSignIn,
   validateSignUp,
   type SignUpInput,
 } from "@/lib/auth-input";
 import { loadAccountProfile, type AccountProfile } from "@/lib/profile";
 import { getMobileEnv, getSupabase } from "@/lib/supabase";
+import { apiOrigin } from "@/lib/account";
+import { createMobileAuth, type AuthSession } from "@/lib/mobile-auth";
 
 export type AuthMessage = { error: string; notice?: boolean };
 
@@ -40,6 +43,18 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const mobileAuth = createMobileAuth(apiOrigin(process.env.EXPO_PUBLIC_LONAGRAM_API_URL) ?? undefined);
+
+// Keep a session the website returned. The auth listener then signs the app in;
+// the app layout sends new accounts to onboarding and everyone else to Home.
+async function storeSession(client: NonNullable<ReturnType<typeof getSupabase>>, session: AuthSession): Promise<AuthMessage> {
+  try {
+    const { error } = await client.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token });
+    return error ? { error: "Signed in, but the session could not be saved. Please try again." } : { error: "" };
+  } catch {
+    return { error: "Signed in, but the session could not be saved. Please try again." };
+  }
+}
 const empty: AuthMessage = { error: "" };
 WebBrowser.maybeCompleteAuthSession();
 let exchange: { code: string; promise: Promise<AuthMessage> } | null = null;
@@ -219,6 +234,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               "Add the Lonagram Supabase URL and publishable key in .env.local.",
           };
         }
+        // Usernames are looked up on the website, which knows each account's internal address.
+        if (isUsername(input.email)) {
+          const result = await mobileAuth.signIn({ username: input.email.trim().toLowerCase(), password: input.password });
+          if (result.ok) return storeSession(client, result.session);
+          if (result.code !== "not_deployed") return { error: result.error };
+          // The website endpoint is not live yet: use the older direct sign-in below.
+        }
         try {
           const { data, error } = await client.auth.signInWithPassword(
             parsed.value,
@@ -244,11 +266,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               "Add the Lonagram Supabase URL and publishable key in .env.local.",
           };
         }
+        // No email code: the website creates the account and returns a session. Onboarding follows.
+        const result = await mobileAuth.signUp({ ...parsed.value, is18Plus: true });
+        if (result.ok) return storeSession(client, result.session);
+        if (result.code === "created_sign_in") return { error: "Your account is ready. Sign in with your username and password.", notice: true };
+        if (result.code !== "not_deployed") return { error: result.error };
+        // The website endpoint is not live yet. The older direct sign-up needs a real email.
+        if (!parsed.value.email) {
+          return { error: "Creating an account in the app needs the latest Lonagram server. Sign up on lonagram.com for now, then sign in here." };
+        }
         try {
           const { data, error } = await client.auth.signUp({
             email: parsed.value.email,
             password: parsed.value.password,
-            options: { data: parsed.value.data },
+            options: { data: { is_18_plus: true, username: parsed.value.username, display_name: parsed.value.username } },
           });
           if (error) return { error: error.message };
           if (!data.session) {
