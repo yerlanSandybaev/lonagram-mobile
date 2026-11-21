@@ -73,6 +73,7 @@ export default function CharacterProfileScreen() {
         </View>
       </Section>
 
+      {character.timeline.length ? (
       <Section title="Life">
         <View>
           {character.timeline.map((step, index) => {
@@ -92,10 +93,13 @@ export default function CharacterProfileScreen() {
           })}
         </View>
       </Section>
+      ) : null}
 
-      <Section title="Works">
+      {character.works.length ? (
+      <Section title={character.fiction ? "Stories" : "Works"}>
         <Text style={{ color: theme.text, fontSize: 15, lineHeight: 24 }}>{character.works.join(" · ")}</Text>
       </Section>
+      ) : null}
 
       <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 19 }}>{characterDisclaimer(character)}</Text>
     </ScrollView>

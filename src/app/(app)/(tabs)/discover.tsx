@@ -2,16 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text, TextInput } from "@/components/app-text";
-import { Monogram } from "@/components/character-ui";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Pastels, Radius } from "@/constants/theme";
 import { useCharacters } from "@/hooks/use-characters";
 import { useTheme } from "@/hooks/use-theme";
-import { searchCharacters, type Character } from "@/lib/characters";
+import { characterYears, monogram, searchCharacters, type Character } from "@/lib/characters";
 import { discoverApi, type DiscoverCard } from "@/lib/lonagram";
 import { useAuth } from "@/providers/auth-provider";
 
@@ -67,14 +66,11 @@ export default function DiscoverScreen() {
 
         <SectionHeader title="Character Twins" body="Talk with people from history. AI portrayals, not the real people." />
         {characters.length ? (
-          characters.map((character, index) => (
-            <CharacterRow
-              key={character.slug}
-              character={character}
-              last={index === characters.length - 1}
-              onPress={() => router.push({ pathname: "/character/[slug]" as never, params: { slug: character.slug } } as never)}
-            />
-          ))
+          <CharacterCards
+            characters={characters}
+            onOpen={(slug) => router.push({ pathname: "/character/[slug]" as never, params: { slug } } as never)}
+            onChat={(slug) => router.push({ pathname: "/character-chat/[slug]" as never, params: { slug } } as never)}
+          />
         ) : (
           <Muted>No Character Twin matches that search.</Muted>
         )}
@@ -143,21 +139,64 @@ function ListRow({ last, onPress, label, children }: { last: boolean; onPress: (
   );
 }
 
-function CharacterRow({ character, last, onPress }: { character: Character; last: boolean; onPress: () => void }) {
+// Colour cards, one per Character Twin. Phones scroll sideways; wide screens show a grid.
+const CARD_INK = "#2A2140";
+function CharacterCards({ characters, onOpen, onChat }: { characters: Character[]; onOpen: (slug: string) => void; onChat: (slug: string) => void }) {
+  const { width } = useWindowDimensions();
+  const wide = width >= 640;
+  const column = Math.min(width, 680) - 32;
+  const cardWidth = wide ? (column - 24) / 3 : Math.round(column * 0.44);
+  const cards = characters.map((character) => (
+    <CharacterCard key={character.slug} character={character} width={cardWidth} onOpen={() => onOpen(character.slug)} onChat={() => onChat(character.slug)} />
+  ));
+  if (wide) return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 16, paddingTop: 12 }}>{cards}</View>;
+  return (
+    <ScrollView
+      horizontal
+      decelerationRate="fast"
+      showsHorizontalScrollIndicator={false}
+      snapToInterval={cardWidth + 12}
+      contentContainerStyle={{ gap: 12, paddingHorizontal: 16, paddingTop: 12 }}
+    >
+      {cards}
+    </ScrollView>
+  );
+}
+
+function CharacterCard({ character, width, onOpen, onChat }: { character: Character; width: number; onOpen: () => void; onChat: () => void }) {
   const theme = useTheme();
   return (
-    <ListRow last={last} onPress={onPress} label={`${character.name}, ${character.role}`}>
-      <Monogram character={character} size={48} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={1} style={{ color: theme.text, fontSize: 15, fontWeight: "800" }}>
-          {character.name} <Text style={{ color: theme.textSecondary, fontWeight: "600" }}>· {character.lifetime}</Text>
+    <View style={{ gap: 8, width }}>
+      <Pressable
+        accessibilityLabel={`${character.name}, ${characterYears(character)}, ${character.role}`}
+        accessibilityRole="button"
+        onPress={onOpen}
+        style={({ pressed }) => ({ backgroundColor: character.tone, borderRadius: 24, flexGrow: 1, gap: 12, opacity: pressed ? 0.85 : 1, padding: 16 })}
+      >
+        <View style={{ alignItems: "center", backgroundColor: "rgba(255,255,255,0.65)", borderRadius: 28, height: 56, justifyContent: "center", width: 56 }}>
+          <Text heading style={{ color: CARD_INK, fontSize: 24, fontWeight: "800" }}>
+            {monogram(character)}
+          </Text>
+        </View>
+        <View>
+          <Text numberOfLines={1} style={{ color: CARD_INK, fontSize: 15, fontWeight: "700" }}>
+            {character.name}
+          </Text>
+          <Text style={{ color: "#4A3F63", fontSize: 12, marginTop: 2 }}>{characterYears(character)}</Text>
+        </View>
+        <Text numberOfLines={2} style={{ color: "#3D3356", fontSize: 13, lineHeight: 18 }}>
+          {character.role}
         </Text>
-        <Text style={{ color: theme.textSecondary, fontSize: 13 }}>{character.role}</Text>
-        <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, lineHeight: 20 }}>
-          {character.tagline}
-        </Text>
-      </View>
-    </ListRow>
+      </Pressable>
+      <Pressable
+        accessibilityLabel={`Chat with ${character.name}`}
+        accessibilityRole="button"
+        onPress={onChat}
+        style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? theme.tint : theme.background, borderColor: theme.border, borderRadius: Radius.pill, borderWidth: 1, height: 36, justifyContent: "center" })}
+      >
+        <Text style={{ color: theme.text, fontSize: 14, fontWeight: "700" }}>Chat</Text>
+      </Pressable>
+    </View>
   );
 }
 

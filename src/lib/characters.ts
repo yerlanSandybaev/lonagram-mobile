@@ -16,6 +16,10 @@ export type Character = {
   starters: string[];
   // Monogram background. Text on it is always dark, in both themes.
   tone: string;
+  // Set for a fictional character: where it comes from ("the stories of Arthur Conan Doyle").
+  fiction?: string | null;
+  // The News Twin: searches the web and lists its sources under each answer.
+  webSearch?: boolean;
 };
 
 export const CHARACTER_INK = "#1B1533";
@@ -61,8 +65,44 @@ export function monogram(character: Pick<Character, "name">): string {
   return character.name.trim().charAt(0).toUpperCase();
 }
 
-export function characterDisclaimer(character: Pick<Character, "name">): string {
+export function characterDisclaimer(character: Pick<Character, "name" | "fiction" | "webSearch">): string {
+  if (character.webSearch) return "The News Twin searches the web when you ask and links the pages it used. It is an AI and can be wrong, so check the sources.";
+  if (character.fiction) return `This is a Character Twin of a fictional character, based on ${character.fiction}. It is an AI portrayal, not a real person, and it can be wrong.`;
   return `This is a Character Twin: an AI portrayal of ${character.name} built from what is known about ${character.name}'s life and work. It is not the real person, and it can be wrong.`;
+}
+
+// The muted line under the chat's empty-state heading.
+export function characterChatNote(character: Pick<Character, "fiction" | "webSearch">): string {
+  if (character.webSearch) return "Searches the web and shows its sources. It can still be wrong, so check them.";
+  if (character.fiction) return `A Twin of a fictional character, built from ${character.fiction}.`;
+  return "A Twin, an AI portrayal built from the historical record, so it can be wrong.";
+}
+
+// Under the name on Discover cards: "Fiction" for fictional characters, otherwise the lifetime.
+export function characterYears(character: Pick<Character, "fiction" | "lifetime">): string {
+  return character.fiction ? "Fiction" : character.lifetime;
+}
+
+export type ReplySource = { url: string; label: string; host: string };
+
+// The News Twin ends a reply with a blank line, "Sources:", then one "Title — https://…"
+// (or bare URL) per line. Splits that off so the sources show as small links.
+// Other replies come back unchanged.
+export function splitSources(text: string): { body: string; sources: ReplySource[] } {
+  const [body, list] = text.split(/\n\nSources:\n/u);
+  const sources: ReplySource[] = [];
+  for (const row of (list ?? "").split("\n")) {
+    const match = /^(?:(.*) — )?(https?:\/\/\S+)$/u.exec(row.trim());
+    if (!match) continue;
+    let host = match[2];
+    try {
+      host = new URL(match[2]).hostname.replace(/^www\./u, "");
+    } catch {
+      // keep the raw address
+    }
+    sources.push({ url: match[2], label: match[1] || host, host });
+  }
+  return { body: body ?? text, sources };
 }
 
 // Search by name, role or "known for" words.

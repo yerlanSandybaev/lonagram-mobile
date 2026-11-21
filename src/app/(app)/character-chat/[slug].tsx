@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,7 +16,7 @@ import { Radius } from "@/constants/theme";
 import { useCharacter } from "@/hooks/use-characters";
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset";
 import { useTheme } from "@/hooks/use-theme";
-import type { CharacterLine } from "@/lib/characters";
+import { characterChatNote, splitSources, type CharacterLine } from "@/lib/characters";
 import { characterApi } from "@/lib/lonagram";
 import { uuidv4 } from "@/lib/uuid";
 import { useAuth } from "@/providers/auth-provider";
@@ -138,7 +139,7 @@ export default function CharacterChatScreen() {
               {`I’m ${character.name}. What’s on your mind?`}
             </Text>
             <Text style={{ color: theme.textSecondary, fontSize: 15, lineHeight: 22, maxWidth: 420, textAlign: "center" }}>
-              A Twin, an AI portrayal built from the historical record, so it can be wrong.
+              {characterChatNote(character)}
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12, maxWidth: 520, width: "100%" }}>
               {character.starters.map((starter) => (
@@ -171,9 +172,7 @@ export default function CharacterChatScreen() {
             line.role === "character" ? (
               // Replies: plain text, full width, no bubble or name; paragraphs kept; Copy underneath.
               <View key={line.id} style={{ gap: 4 }}>
-                <Text content selectable style={{ color: theme.text, fontSize: 15.5, lineHeight: 25 }}>
-                  {line.text}
-                </Text>
+                <ReplyText text={line.text} />
                 <CopyButton text={line.text} />
               </View>
             ) : (
@@ -214,6 +213,38 @@ export default function CharacterChatScreen() {
         onSend={() => send(draft)}
         bottomPad={keyboard > 0 ? 8 : Math.max(insets.bottom, 0) + 8}
       />
+    </View>
+  );
+}
+
+// A reply. When the News Twin added a "Sources:" list, it shows as small numbered links.
+function ReplyText({ text }: { text: string }) {
+  const theme = useTheme();
+  const { body, sources } = splitSources(text);
+  return (
+    <View style={{ gap: 10 }}>
+      <Text content selectable style={{ color: theme.text, fontSize: 15.5, lineHeight: 25 }}>
+        {body}
+      </Text>
+      {sources.length ? (
+        <View style={{ borderLeftColor: theme.border, borderLeftWidth: 2, gap: 2, paddingLeft: 12 }}>
+          {sources.map((source, index) => (
+            <Pressable
+              key={source.url}
+              accessibilityHint={source.host}
+              accessibilityRole="link"
+              onPress={() => void WebBrowser.openBrowserAsync(source.url)}
+              style={{ alignItems: "center", flexDirection: "row", gap: 6, minHeight: 32 }}
+            >
+              <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{index + 1}.</Text>
+              <Text content numberOfLines={1} style={{ color: theme.primary, flexShrink: 1, fontSize: 12 }}>
+                {source.label}
+              </Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{source.host}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
